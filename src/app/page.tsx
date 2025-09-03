@@ -1,103 +1,86 @@
-import Image from "next/image";
+// SERVER COMPONENT
+import { createClientServer } from "@/lib/supabase/server";
+import HomeClient from "./ui/HomeClient";
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+type ProductOut = {
+  id: string;
+  title: string;
+  description: string;
+  price: number; // cents
+  stock: number;
+  image: string | null;
+  category: string;
+};
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+export default async function HomePage() {
+  const supabase = await createClientServer();
+
+  const { data: products, error } = await supabase
+    .from("products")
+    .select("id, title, description, price_cents, stock, status, created_at")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    // render a small error (server-side)
+    return (
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Failed to load products: {error.message}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    );
+  }
+
+  const ids = (products ?? []).map((p) => p.id);
+
+  // first image per product
+  const firstImageByProduct = new Map<string, string>();
+  if (ids.length) {
+    const { data: imgs } = await supabase
+      .from("product_images")
+      .select("product_id, url, sort")
+      .in("product_id", ids)
+      .order("sort", { ascending: true });
+    (imgs ?? []).forEach((img) => {
+      if (!firstImageByProduct.has(img.product_id)) {
+        firstImageByProduct.set(img.product_id, img.url);
+      }
+    });
+  }
+
+  // simple category name (first)
+  const nameByProduct = new Map<string, string>();
+  if (ids.length) {
+    const { data: pc } = await supabase
+      .from("product_categories")
+      .select("product_id, category_id")
+      .in("product_id", ids);
+
+    const catIds = Array.from(new Set((pc ?? []).map((r) => r.category_id)));
+    if (catIds.length) {
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id, name")
+        .in("id", catIds);
+      const nameById = new Map((cats ?? []).map((c) => [c.id, c.name]));
+      (pc ?? []).forEach((r) => {
+        if (!nameByProduct.has(r.product_id)) {
+          nameByProduct.set(r.product_id, nameById.get(r.category_id) ?? "All");
+        }
+      });
+    }
+  }
+
+  const out: ProductOut[] = (products ?? []).map((p) => ({
+    id: p.id,
+    title: p.title,
+    description: p.description ?? "",
+    price: p.price_cents,
+    stock: p.stock,
+    image: firstImageByProduct.get(p.id) ?? null,
+    category: nameByProduct.get(p.id) ?? "All",
+  }));
+
+  return <HomeClient initialProducts={out} />;
 }

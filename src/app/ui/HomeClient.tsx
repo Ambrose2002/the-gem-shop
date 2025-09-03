@@ -19,10 +19,17 @@ type ProductIn = {
 };
 
 function toUSD(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100);
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+  }).format(cents / 100);
 }
 
-export default function HomeClient({ initialProducts }: { initialProducts: ProductIn[] }) {
+export default function HomeClient({
+  initialProducts,
+}: {
+  initialProducts: ProductIn[];
+}) {
   const { open, isOpen, close } = useCartUI();
   const { lines, add, remove, setQty } = useCartData();
 
@@ -54,7 +61,13 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     return products.filter((p) => {
       if (category && p.category !== category) return false;
       if (maxPrice != null && p.price > maxPrice) return false;
-      if (query && !`${p.title} ${p.material} ${p.description}`.toLowerCase().includes(query.toLowerCase())) return false;
+      if (
+        query &&
+        !`${p.title} ${p.material} ${p.description}`
+          .toLowerCase()
+          .includes(query.toLowerCase())
+      )
+        return false;
       return true;
     });
   }, [products, category, maxPrice, query]);
@@ -66,23 +79,61 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
     })
     .filter(Boolean) as { product: Product; quantity: number }[];
 
-  const subtotal = cartDetailed.reduce((sum, l) => sum + l.product.price * l.quantity, 0);
+  const subtotal = cartDetailed.reduce(
+    (sum, l) => sum + l.product.price * l.quantity,
+    0
+  );
 
-  function addToCart(productId: string, qty = 1) { add(productId, qty); open(); }
+  function addToCart(productId: string, qty = 1) {
+    add(productId, qty);
+    open();
+  }
+
+  function resetFilters() {
+    setQuery("");
+    setCategory(null);
+    setMaxPrice(null);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* hero */}
+      {/* hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
         <div className="grid gap-6 rounded-3xl bg-white p-8 shadow-sm md:grid-cols-2">
           <div className="flex flex-col justify-center">
-            <h1 className="mb-2 text-3xl font-semibold text-gray-900 md:text-4xl">Handcrafted Jewelry</h1>
-            <p className="text-gray-600">Minimal, timeless pieces designed for everyday elegance.</p>
-            <div className="mt-6">
-              <a href="#shop" className="rounded-2xl bg-black px-5 py-3 text-white shadow hover:opacity-90">Shop collection</a>
+            <h1 className="mb-2 text-3xl font-semibold text-gray-900 md:text-4xl">
+              Handcrafted Jewelry
+            </h1>
+            <p className="text-gray-600">
+              Minimal, timeless pieces designed for everyday elegance.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <a
+                href="#shop"
+                className="rounded-2xl bg-black px-5 py-3 text-white shadow hover:opacity-90"
+              >
+                Shop collection
+              </a>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded-2xl border border-gray-300 px-5 py-3 text-gray-700 hover:bg-gray-100"
+              >
+                Reset filters
+              </button>
             </div>
           </div>
-          <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-gray-100" />
+
+          {/* BIG IMAGE (restored) */}
+          <div className="aspect-[4/3] overflow-hidden rounded-2xl">
+            <img
+              src="https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2000&auto=format&fit=crop"
+              alt="Elegant jewelry on display"
+              className="h-full w-full object-cover"
+              loading="eager"
+            />
+          </div>
         </div>
       </section>
 
@@ -104,14 +155,20 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
               onChange={(e) => setCategory(e.target.value || null)}
             >
               <option value="">All categories</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <select
               className="w-full rounded-xl border border-gray-300 text-gray-600 px-3 py-3"
               value={String(maxPrice ?? "")}
-              onChange={(e) => setMaxPrice(e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) =>
+                setMaxPrice(e.target.value ? Number(e.target.value) : null)
+              }
             >
               <option value="">No price cap</option>
               <option value="6000">Up to {toUSD(6000)}</option>
@@ -124,7 +181,9 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
 
         {/* grid */}
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">No products match your filters.</div>
+          <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">
+            No products match your filters.
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((p) => (
@@ -140,13 +199,20 @@ export default function HomeClient({ initialProducts }: { initialProducts: Produ
       </section>
 
       {/* product modal */}
-      <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} onAdd={(id) => addToCart(id)} />
+      <ProductModal
+        product={activeProduct}
+        onClose={() => setActiveProduct(null)}
+        onAdd={(id) => addToCart(id)}
+      />
 
       {/* cart drawer */}
       <CartDrawer
-        open={isOpen} onClose={close}
-        lines={cartDetailed} subtotal={subtotal}
-        onRemove={(id) => remove(id)} onQty={(id, q) => setQty(id, q)}
+        open={isOpen}
+        onClose={close}
+        lines={cartDetailed}
+        subtotal={subtotal}
+        onRemove={(id) => remove(id)}
+        onQty={(id, q) => setQty(id, q)}
         onCheckout={() => alert("Checkout placeholder.")}
       />
     </div>

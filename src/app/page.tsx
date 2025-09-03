@@ -8,7 +8,7 @@ type ProductOut = {
   description: string;
   price: number; // cents
   stock: number;
-  image: string | null;
+  images: string[]; // ⬅️ was: image: string | null
   category: string;
 };
 
@@ -35,18 +35,19 @@ export default async function HomePage() {
 
   const ids = (products ?? []).map((p) => p.id);
 
-  // first image per product
-  const firstImageByProduct = new Map<string, string>();
+  // all images per product (ordered)
+  const imagesByProduct = new Map<string, string[]>();
   if (ids.length) {
     const { data: imgs } = await supabase
       .from("product_images")
       .select("product_id, url, sort")
       .in("product_id", ids)
       .order("sort", { ascending: true });
+
     (imgs ?? []).forEach((img) => {
-      if (!firstImageByProduct.has(img.product_id)) {
-        firstImageByProduct.set(img.product_id, img.url);
-      }
+      const list = imagesByProduct.get(img.product_id) ?? [];
+      list.push(img.url);
+      imagesByProduct.set(img.product_id, list);
     });
   }
 
@@ -74,14 +75,14 @@ export default async function HomePage() {
   }
 
   const out: ProductOut[] = (products ?? []).map((p) => ({
-    id: p.id,
-    title: p.title,
-    description: p.description ?? "",
-    price: p.price_cents,
-    stock: p.stock,
-    image: firstImageByProduct.get(p.id) ?? null,
-    category: nameByProduct.get(p.id) ?? "All",
-  }));
+  id: p.id,
+  title: p.title,
+  description: p.description ?? "",
+  price: p.price_cents,
+  stock: p.stock,
+  images: imagesByProduct.get(p.id) ?? [],   // ⬅️ was: image: firstImageByProduct.get(...)
+  category: nameByProduct.get(p.id) ?? "All",
+}));
 
   return <HomeClient initialProducts={out} />;
 }

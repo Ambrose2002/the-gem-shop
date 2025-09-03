@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClientBrowser } from "@/lib/supabase/client";
 import { useCartUI } from "@/contexts/cart-ui";
 import { useCartData } from "@/contexts/cart-data";
+import Image from "next/image";
 
 export default function NavbarClient({
   initialUserName,
@@ -72,8 +73,17 @@ export default function NavbarClient({
     <header className="sticky top-0 z-10 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-2xl bg-black" />
-          <span className="text-lg font-semibold">The Gem Shop</span>
+          <a href="/" className="inline-flex items-center gap-3">
+            <Image
+              src="/brand/logo.png" // put your logo at public/brand/logo.png
+              alt="The Gem Shop"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-full object-contain"
+              priority
+            />
+            <span className="text-lg font-semibold">The Gem Shop</span>
+          </a>
           {showGreeting && (
             <span className="ml-3 hidden text-sm text-gray-600 md:inline">
               Welcome, {userName.split(" ")[0]}

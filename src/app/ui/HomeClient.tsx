@@ -12,9 +12,9 @@ type ProductIn = {
   id: string;
   title: string;
   description: string;
-  price: number; // cents
+  price: number;
   stock: number;
-  image: string | null;
+  images: string[]; // ✅
   category: string;
 };
 
@@ -43,7 +43,7 @@ export default function HomeClient({
       stock: p.stock,
       category: p.category,
       material: "",
-      images: p.image ? [p.image] : [],
+      images: p.images ?? [],
     }));
   }, [initialProducts]);
 
@@ -98,7 +98,6 @@ export default function HomeClient({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* hero */}
-      {/* hero */}
       <section className="mx-auto max-w-6xl px-4 pt-10">
         <div className="grid gap-6 rounded-3xl bg-white p-8 shadow-sm md:grid-cols-2">
           <div className="flex flex-col justify-center">
@@ -126,11 +125,12 @@ export default function HomeClient({
           </div>
 
           {/* BIG IMAGE (restored) */}
-          <div className="aspect-[4/3] overflow-hidden rounded-2xl">
+          {/* BIG IMAGE (brand logo) */}
+          <div className="flex items-center justify-center rounded-2xl bg-white">
             <img
-              src="https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2000&auto=format&fit=crop"
-              alt="Elegant jewelry on display"
-              className="h-full w-full object-cover"
+              src="/brand/logo.png" // ⬅️ file path in /public
+              alt="The Gem Shop logo"
+              className="h-64 w-auto rounded-2xl object-contain md:h-80" // scale nicely
               loading="eager"
             />
           </div>

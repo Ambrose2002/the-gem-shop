@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClientServer } from "@/lib/supabase/server";
 import AdminShell from "@/components/AdminShell";
+import DeleteProductButton from "@/components/admin/DeleteProductButton";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function AdminProducts() {
   const { data: products, error } = await supabase
     .from("products")
     .select("id, title, slug, price_cents, stock, status, created_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -52,12 +54,18 @@ export default async function AdminProducts() {
                 <td className="px-4 py-3 text-gray-600">{p.stock}</td>
                 <td className="px-4 py-3 text-gray-600">{p.status}</td>
                 <td className="px-4 py-3">
-                  <Link
-                    href={`/admin/products/${p.id}`}
-                    className="text-gray-600 underline"
-                  >
-                    Edit
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/admin/products/${p.id}`}
+                      className="text-gray-600 underline"
+                    >
+                      Edit
+                    </Link>
+
+                    {/* Soft delete (default). For hard delete in place, pass hard */}
+                    <DeleteProductButton id={p.id} title={p.title} />
+                    {/* <DeleteProductButton id={p.id} title={p.title} hard /> */}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -19,6 +19,7 @@ export default async function HomePage() {
     .from("products")
     .select("id, title, description, price_cents, stock, status, created_at")
     .eq("status", "published")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {

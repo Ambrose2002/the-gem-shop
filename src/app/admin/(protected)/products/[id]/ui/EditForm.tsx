@@ -322,6 +322,28 @@ export default function EditForm({
         >
           {saving ? "Saving..." : "Save changes"}
         </button>
+        <button
+          onClick={async () => {
+            if (
+              !confirm(
+                "This will permanently remove the product and its images. Continue?"
+              )
+            )
+              return;
+            const res = await fetch(
+              `/api/admin/products/${initial.id}?hard=1`,
+              { method: "DELETE" }
+            );
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok)
+              return alert(body?.error || "Failed to hard-delete");
+            router.replace("/admin/products");
+            router.refresh();
+          }}
+          className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+        >
+          Permanently delete
+        </button>
         <a href="/admin/products" className="rounded-lg border px-4 py-2">
           Back
         </a>

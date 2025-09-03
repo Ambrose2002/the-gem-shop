@@ -9,7 +9,7 @@ type ProductOut = {
   price: number; // cents
   stock: number;
   images: string[]; // ⬅️ was: image: string | null
-  category: string;
+  categories: string[];
 };
 
 export default async function HomePage() {
@@ -52,7 +52,7 @@ export default async function HomePage() {
   }
 
   // simple category name (first)
-  const nameByProduct = new Map<string, string>();
+  const categoriesByProduct = new Map<string, string[]>();
   if (ids.length) {
     const { data: pc } = await supabase
       .from("product_categories")
@@ -60,29 +60,31 @@ export default async function HomePage() {
       .in("product_id", ids);
 
     const catIds = Array.from(new Set((pc ?? []).map((r) => r.category_id)));
-    if (catIds.length) {
-      const { data: cats } = await supabase
-        .from("categories")
-        .select("id, name")
-        .in("id", catIds);
-      const nameById = new Map((cats ?? []).map((c) => [c.id, c.name]));
-      (pc ?? []).forEach((r) => {
-        if (!nameByProduct.has(r.product_id)) {
-          nameByProduct.set(r.product_id, nameById.get(r.category_id) ?? "All");
-        }
-      });
-    }
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("id, name")
+      .in("id", catIds);
+
+    const nameByCat = new Map(
+      (cats ?? []).map((c) => [c.id, c.name as string])
+    );
+    (pc ?? []).forEach((r) => {
+      const list = categoriesByProduct.get(r.product_id) ?? [];
+      const name = nameByCat.get(r.category_id);
+      if (name && !list.includes(name)) list.push(name);
+      categoriesByProduct.set(r.product_id, list);
+    });
   }
 
   const out: ProductOut[] = (products ?? []).map((p) => ({
-  id: p.id,
-  title: p.title,
-  description: p.description ?? "",
-  price: p.price_cents,
-  stock: p.stock,
-  images: imagesByProduct.get(p.id) ?? [],   // ⬅️ was: image: firstImageByProduct.get(...)
-  category: nameByProduct.get(p.id) ?? "All",
-}));
+    id: p.id,
+    title: p.title,
+    description: p.description ?? "",
+    price: p.price_cents,
+    stock: p.stock,
+    images: imagesByProduct.get(p.id) ?? [], // ⬅️ was: image: firstImageByProduct.get(...)
+    categories: categoriesByProduct.get(p.id) ?? [],
+  }));
 
   return <HomeClient initialProducts={out} />;
 }

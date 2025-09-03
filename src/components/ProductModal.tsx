@@ -89,7 +89,7 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
           <div>
             <p className="mt-2 text-sm text-gray-600">{product.description}</p>
             <ul className="mt-4 list-disc pl-5 text-sm text-gray-600">
-              <li>Category: {product.category}</li>
+              <li>Category: {product.categories?.length ? product.categories.join(", ") : "—"}</li>
               <li>
                 Availability:{" "}
                 {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}

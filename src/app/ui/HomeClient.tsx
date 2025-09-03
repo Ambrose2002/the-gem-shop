@@ -15,7 +15,7 @@ type ProductIn = {
   price: number;
   stock: number;
   images: string[]; // ✅
-  category: string;
+  categories: string[];
 };
 
 function toUSD(cents: number) {
@@ -41,7 +41,7 @@ export default function HomeClient({
       description: p.description,
       price: p.price,
       stock: p.stock,
-      category: p.category,
+      categories: p.categories ?? [],
       material: "",
       images: p.images ?? [],
     }));
@@ -53,13 +53,16 @@ export default function HomeClient({
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
 
   const categories = useMemo(
-    () => Array.from(new Set(products.map((p) => p.category))).filter(Boolean),
+    () =>
+      Array.from(new Set(products.flatMap((p) => p.categories))).filter(
+        Boolean
+      ) as string[],
     [products]
   );
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      if (category && p.category !== category) return false;
+      if (category && !p.categories.includes(category)) return false;
       if (maxPrice != null && p.price > maxPrice) return false;
       if (
         query &&

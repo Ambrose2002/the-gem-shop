@@ -73,7 +73,7 @@ export default function CartDrawer({
                     <div>
                       <div className="text-sm font-medium">{product.title}</div>
                       <div className="text-xs text-gray-500">
-                        {product.material} · {product.category}
+                        {product.material} · {product.categories}
                       </div>
                     </div>
                     <div className="text-sm font-semibold">

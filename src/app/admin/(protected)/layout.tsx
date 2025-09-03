@@ -16,14 +16,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   // Consistent light background; RootLayout handles Navbar/Footer and page height
   return (
     <div className="bg-gray-50">
-      {/* Small admin bar (optional) */}
-      <div className="mx-auto max-w-6xl px-4 pt-6 pb-2">
-        <div className="flex items-center justify-end">
-          <a href="/admin/signout" className="text-sm text-gray-600 underline">
-            Sign out
-          </a>
-        </div>
-      </div>
+      
       {children}
     </div>
   );

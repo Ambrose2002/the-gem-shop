@@ -13,10 +13,21 @@ type Props = {
 };
 
 function priceToUSD(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100);
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+  }).format(cents / 100);
 }
 
-export default function CartDrawer({ open, lines, subtotal, onClose, onRemove, onQty, onCheckout }: Props) {
+export default function CartDrawer({
+  open,
+  lines,
+  subtotal,
+  onClose,
+  onRemove,
+  onQty,
+  onCheckout,
+}: Props) {
   return (
     <div
       className={`fixed inset-y-0 right-0 z-30 w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
@@ -28,7 +39,10 @@ export default function CartDrawer({ open, lines, subtotal, onClose, onRemove, o
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b p-4">
           <h3 className="text-lg font-semibold">Your cart</h3>
-          <button onClick={onClose} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100"
+          >
             Close
           </button>
         </div>
@@ -37,9 +51,22 @@ export default function CartDrawer({ open, lines, subtotal, onClose, onRemove, o
             <p className="text-sm text-gray-600">Your cart is empty.</p>
           ) : (
             lines.map(({ product, quantity }) => (
-              <div key={product.id} className="flex items-center gap-3 rounded-xl border p-3">
+              <div
+                key={product.id}
+                className="flex items-center gap-3 rounded-xl border p-3"
+              >
                 <div className="h-16 w-16 overflow-hidden rounded-lg">
-                  <img className="h-full w-full object-cover" src={product.images[0]} alt={product.title} />
+                  {product.images?.[0] ? (
+                    <img
+                      className="h-full w-full object-cover"
+                      src={product.images[0]}
+                      alt={product.title}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-gray-500 bg-gray-100">
+                      No image
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-3">
@@ -49,20 +76,35 @@ export default function CartDrawer({ open, lines, subtotal, onClose, onRemove, o
                         {product.material} · {product.category}
                       </div>
                     </div>
-                    <div className="text-sm font-semibold">{priceToUSD(product.price * quantity)}</div>
+                    <div className="text-sm font-semibold">
+                      {priceToUSD(product.price * quantity)}
+                    </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <label className="text-xs text-gray-500">Qty</label>
                     <input
                       type="number"
                       min={1}
-                      max={99}
-                      value={quantity}
-                      onChange={(e) =>
-                        onQty(product.id, Math.max(1, Math.min(99, Number(e.target.value) || 1)))
-                      }
-                      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      max={Math.max(0, product.stock)} // ← stock-aware
+                      value={Math.min(quantity, Math.max(0, product.stock))} // keep UI in sync
+                      onChange={(e) => {
+                        const raw = Number(e.target.value) || 0;
+                        const clamped = Math.max(
+                          1,
+                          Math.min(product.stock, raw)
+                        ); // ← stock-aware clamp
+                        onQty(product.id, clamped);
+                      }}
+                      disabled={product.stock <= 0}
+                      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                     />
+                    {product.stock <= 0 ? (
+                      <span className="text-xs text-red-600">Out of stock</span>
+                    ) : (
+                      <span className="text-xs text-gray-500">
+                        Max {product.stock}
+                      </span>
+                    )}
                     <button
                       onClick={() => onRemove(product.id)}
                       className="ml-auto rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100"
@@ -80,7 +122,9 @@ export default function CartDrawer({ open, lines, subtotal, onClose, onRemove, o
             <span>Subtotal</span>
             <span className="font-semibold">{priceToUSD(subtotal)}</span>
           </div>
-          <p className="mb-3 text-xs text-gray-500">Shipping calculated after purchase. Taxes shown at checkout.</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Shipping calculated after purchase. Taxes shown at checkout.
+          </p>
           <button
             onClick={onCheckout}
             disabled={lines.length === 0}

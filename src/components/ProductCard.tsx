@@ -16,7 +16,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }: Props
     <div className="group rounded-2xl bg-white p-3 shadow-sm">
       <div className="relative aspect-square overflow-hidden rounded-xl">
         <img
-          src={product.images[0]}
+          src={product.images?.[0]}
           alt={product.title}
           className="h-full w-full object-cover transition-transform group-hover:scale-105"
         />

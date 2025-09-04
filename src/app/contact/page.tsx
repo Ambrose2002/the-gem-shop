@@ -18,11 +18,11 @@ export default function ContactPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Location</h2>
-            <p className="text-gray-600">Bantama, Kumasi, Ghana</p>
+            <p className="text-gray-600">Knust, Kumasi</p>
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Phone</h2>
-            <p className="text-gray-600">+233 240 443 1954</p>
+            <p className="text-gray-600">+233 247 211 471</p>
           </div>
         </div>
 

@@ -27,8 +27,7 @@ export default function AboutPage() {
           crafted with care, blending timeless elegance with everyday wearability.
         </p>
         <p className="text-gray-700 leading-relaxed mb-4">
-          Founded by <span className="font-semibold">Flora Kwafo</span> in the
-          heart of Bantama, Kumasi, The Gem Shop brings together a passion for
+          Founded by <span className="font-semibold">Flora Kwafo</span>, The Gem Shop brings together a passion for
           craftsmanship and a love of beautiful things. What began as a local
           passion project has grown into a brand that serves customers with
           unique, handmade jewelry pieces.

@@ -11,8 +11,8 @@ function makeSafeObjectKey(originalName: string) {
   return `${stamp}-${normalized || "file"}${ext ? "." + ext : ""}`;
 }
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
-  const { id } = ctx.params;
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
   const form = await req.formData();
   const files = form.getAll("files") as File[];
 

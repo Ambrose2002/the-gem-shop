@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-export async function DELETE(_: Request, ctx: { params: { productId: string } }) {
-  const { productId } = ctx.params;
+export async function DELETE(_: Request, ctx: { params: Promise<{ productId: string }> }) {
+  const { productId } = await ctx.params;
 
   const jar = await cookies();
   const supabase = createServerClient(

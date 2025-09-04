@@ -24,8 +24,8 @@ async function makeClient() {
   );
 }
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
-  const { id } = ctx.params;
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
   const body = await req.json();
   const supabase = await makeClient();
 
@@ -68,9 +68,9 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
  * - Hard delete: removes storage files + related rows + product
  *   → /api/admin/products/:id?hard=1     (DELETE)
  */
-export async function DELETE(req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const supabase = await makeClient();
-  const { id } = ctx.params;
+  const { id } = await ctx.params;
 
   const url = new URL(req.url);
   const hard = url.searchParams.get("hard") === "1";

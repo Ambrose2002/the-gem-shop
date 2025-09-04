@@ -9,8 +9,8 @@ function getObjectKeyFromPublicUrl(url: string) {
   return noQuery.slice(idx + "/storage/v1/object/public/product-images/".length);
 }
 
-export async function DELETE(req: Request, ctx: { params: { id: string; imageId: string } }) {
-  const { imageId } = ctx.params;
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; imageId: string }> }) {
+  const { imageId } = await ctx.params;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(

@@ -42,7 +42,11 @@ export async function POST(req: Request) {
       .insert({ user_id: user.id, status: "active" })
       .select("id")
       .single();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
     cart = newCart;
   }
 
@@ -75,18 +79,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, quantity: 0, stock });
   }
 
-  // Upsert with clamped quantity
-  if (existing) {
-    const { error } = await supabase
-      .from("cart_items")
-      .update({ quantity: nextQty })
-      .eq("id", existing.id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  } else {
-    const { error } = await supabase
-      .from("cart_items")
-      .insert({ cart_id: cart.id, product_id: productId, quantity: nextQty });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  // Upsert with clamped quantity (prevents duplicates)
+  const { error: upsertErr } = await supabase
+    .from("cart_items")
+    .upsert([{ cart_id: cart.id, product_id: productId, quantity: nextQty }], {
+      onConflict: "cart_id,product_id",
+    });
+
+  if (upsertErr) {
+    return NextResponse.json(
+      { ok: false, error: upsertErr.message },
+      { status: 400 }
+    );
   }
 
   // Include clamped quantity/stock in response (optional but useful for UI)

@@ -58,25 +58,18 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true, quantity: 0, stock });
   }
 
-  // Upsert to exact clamped quantity
-  const { data: existing } = await supabase
+  // Upsert to exact clamped quantity (safe with unique(cart_id, product_id))
+  const { error: upsertErr } = await supabase
     .from("cart_items")
-    .select("id")
-    .eq("cart_id", cart.id)
-    .eq("product_id", productId)
-    .maybeSingle();
+    .upsert([{ cart_id: cart.id, product_id: productId, quantity: clamped }], {
+      onConflict: "cart_id,product_id",
+    });
 
-  if (existing) {
-    const { error } = await supabase
-      .from("cart_items")
-      .update({ quantity: clamped })
-      .eq("id", existing.id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-  } else {
-    const { error } = await supabase
-      .from("cart_items")
-      .insert({ cart_id: cart.id, product_id: productId, quantity: clamped });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (upsertErr) {
+    return NextResponse.json(
+      { ok: false, error: upsertErr.message },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ ok: true, quantity: clamped, stock });

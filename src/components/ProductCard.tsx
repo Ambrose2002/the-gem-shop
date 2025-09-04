@@ -1,17 +1,44 @@
+"use client";
+
 import type { Product } from "@/types/product";
+import { useMemo } from "react";
+import { useCart } from "@/contexts/cart-data";
+import { useRouter } from "next/navigation";
+import { createClientBrowser } from "@/lib/supabase/client";
 
 type Props = {
   product: Product;
   onQuickView?: (p: Product) => void;
-  onAddToCart?: (id: string) => void;
 };
 
 function priceToGHS(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "GHS" }).format(cents / 100);
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "GHS",
+  }).format(cents / 100);
 }
 
-export default function ProductCard({ product, onQuickView, onAddToCart }: Props) {
+export default function ProductCard({ product, onQuickView }: Props) {
   const out = product.stock <= 0;
+  const { add, userId } = useCart();
+  const router = useRouter();
+  const supabase = useMemo(() => createClientBrowser(), []);
+
+  const handleAdd = async () => {
+    if (!userId) {
+      const origin = window.location.origin;
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      return;
+    }
+    await add(product.id, 1);
+  };
+
   return (
     <div className="group rounded-2xl bg-white p-3 shadow-sm">
       <div className="relative aspect-square overflow-hidden rounded-xl">
@@ -29,10 +56,14 @@ export default function ProductCard({ product, onQuickView, onAddToCart }: Props
       <div className="mt-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium text-gray-900">{product.title}</h3>
+            <h3 className="text-sm font-medium text-gray-900">
+              {product.title}
+            </h3>
             <p className="text-xs text-gray-500">{product.material}</p>
           </div>
-          <div className="text-sm font-semibold">{priceToGHS(product.price)}</div>
+          <div className="text-sm font-semibold">
+            {priceToGHS(product.price)}
+          </div>
         </div>
         <div className="mt-3 flex gap-2">
           <button
@@ -42,7 +73,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }: Props
             Quick view
           </button>
           <button
-            onClick={() => onAddToCart?.(product.id)}
+            onClick={handleAdd}
             disabled={out}
             className="flex-1 rounded-xl bg-black px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
           >

@@ -16,22 +16,58 @@ export default function NavbarClient({
   const router = useRouter();
   const pathname = usePathname();
   const { open } = useCartUI();
-  const { totalQty } = useCart();
+  const { totalQty, clear } = useCart();
   const [userName, setUserName] = useState<string | null>(initialUserName);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      const name =
-        (user?.user_metadata?.name as string | undefined) ||
-        (user?.user_metadata?.full_name as string | undefined) ||
-        user?.email ||
-        null;
-      setUserName(name ?? null);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") router.refresh();
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("[navbar] Auth state changed:", event);
+
+        if (event === "SIGNED_OUT") {
+          console.log("[navbar] User signed out, clearing state...");
+          setUserName(null);
+          setSigningOut(false);
+          clear();
+          router.refresh();
+          return;
+        }
+
+        if (event === "SIGNED_IN" && session?.user) {
+          console.log("[navbar] User signed in");
+          const user = session.user;
+          const name =
+            (user.user_metadata?.name as string | undefined) ||
+            (user.user_metadata?.full_name as string | undefined) ||
+            user.email ||
+            null;
+          setUserName(name);
+          router.refresh();
+          return;
+        }
+
+        // For other events, just get current user state
+        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+          const {
+            data: { user },
+          } = await supabase.auth
+            .getUser()
+            .catch(() => ({ data: { user: null } }));
+
+          if (user) {
+            const name =
+              (user.user_metadata?.name as string | undefined) ||
+              (user.user_metadata?.full_name as string | undefined) ||
+              user.email ||
+              null;
+            setUserName(name);
+          } else {
+            setUserName(null);
+          }
+        }
+      }
+    );
+
     return () => {
       sub.subscription.unsubscribe();
     };
@@ -52,18 +88,70 @@ export default function NavbarClient({
   const [signingOut, setSigningOut] = useState(false);
 
   async function signOut() {
+    if (signingOut) return; // Prevent double-clicks
+    setSigningOut(true);
+
     try {
-      setSigningOut(true);
-      await fetch("/api/auth/signout", { method: "POST" });
+      console.log("[signout] Starting signout process...");
+
+      // 1) Client session: end it (triggers SIGNED_OUT for listeners)
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        console.warn("[signout] Client signout error:", signOutError);
+      } else {
+        console.log("[signout] Client signout successful");
+      }
+
+      // 2) Server cookies: clear server-side session (with timeout)
+      console.log("[signout] Clearing server cookies...");
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+        const response = await fetch("/api/auth/signout", {
+          method: "POST",
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          console.log("[signout] Server signout successful");
+        } else {
+          console.warn("[signout] Server signout failed:", response.status);
+        }
+      } catch (fetchError: any) {
+        if (fetchError.name === "AbortError") {
+          console.warn("[signout] Server signout timed out");
+        } else {
+          console.warn("[signout] Server signout error:", fetchError);
+        }
+      }
+
+      // 3) Clear local state immediately
+      console.log("[signout] Clearing local state...");
+      clear();
       setUserName(null);
 
+      // 4) Navigate to home (soft navigation first, then hard reload if needed)
+      console.log("[signout] Redirecting to home...");
       if (pathname?.startsWith("/admin")) {
-        router.replace("/admin/login"); // kick out of protected area
+        router.push("/admin/login");
       } else {
-        router.refresh(); // re-read SSR with no session
+        router.push("/");
       }
-    } finally {
-      setSigningOut(false);
+      router.refresh();
+    } catch (error) {
+      console.error("[signout] Unexpected error:", error);
+      // Even if there's an error, try to clear local state
+      clear();
+      setUserName(null);
+      if (pathname?.startsWith("/admin")) {
+        router.push("/admin/login");
+      } else {
+        router.push("/");
+      }
     }
   }
 

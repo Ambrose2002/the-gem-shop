@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { Product } from "@/types/product";
+import { useCart } from "@/contexts/cart-data";
+import { useRouter } from "next/navigation";
+import { createClientBrowser } from "@/lib/supabase/client";
 
 type Props = {
   product: Product | null;
   onClose: () => void;
-  onAdd: (id: string) => void;
 };
 
-export default function ProductModal({ product, onClose, onAdd }: Props) {
+export default function ProductModal({ product, onClose }: Props) {
   const [active, setActive] = useState(0);
+  const { add, userId } = useCart();
+  const router = useRouter();
 
-  // When a different product opens, start from the first image
+  const supabase = useMemo(() => createClientBrowser(), []);
+
   useEffect(() => {
     setActive(0);
   }, [product?.id]);
@@ -21,7 +26,25 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
 
   const imgs = product.images ?? [];
   const hasImages = imgs.length > 0;
-  const mainSrc = hasImages ? imgs[Math.min(active, imgs.length - 1)] : undefined;
+  const mainSrc = hasImages
+    ? imgs[Math.min(active, imgs.length - 1)]
+    : undefined;
+
+  const handleAdd = async () => {
+    if (!userId) {
+      const origin = window.location.origin;
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      return;
+    }
+    await add(product.id, 1);
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4">
@@ -40,11 +63,10 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           {/* Left: gallery */}
           <div>
-            {/* Main image */}
             <div className="aspect-square overflow-hidden rounded-2xl bg-gray-100">
               {mainSrc ? (
                 <img
-                  key={mainSrc} // helps reset transition when active changes
+                  key={mainSrc}
                   src={mainSrc}
                   alt={product.title}
                   className="h-full w-full object-cover"
@@ -56,7 +78,6 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
               )}
             </div>
 
-            {/* Thumbnails */}
             {imgs.length > 1 && (
               <div className="mt-3 grid grid-cols-5 gap-2">
                 {imgs.map((src, i) => {
@@ -74,7 +95,11 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
                       ].join(" ")}
                       aria-label={`View image ${i + 1}`}
                     >
-                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <img
+                        src={src}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                       {isActive && (
                         <span className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-black" />
                       )}
@@ -90,10 +115,17 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
             <p className="mt-2 text-sm text-gray-600">{product.description}</p>
             <ul className="mt-4 list-disc pl-5 text-sm text-gray-600">
               <li>Price: {"GHS " + product.price / 100.0}</li>
-              <li>Category: {product.categories?.length ? product.categories.join(", ") : "—"}</li>
+              <li>
+                Category:{" "}
+                {product.categories?.length
+                  ? product.categories.join(", ")
+                  : "—"}
+              </li>
               <li>
                 Availability:{" "}
-                {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+                {product.stock > 0
+                  ? `${product.stock} in stock`
+                  : "Out of stock"}
               </li>
             </ul>
 
@@ -106,10 +138,7 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
               </button>
               <button
                 className="flex-1 rounded-2xl bg-black px-4 py-3 text-white disabled:opacity-50"
-                onClick={() => {
-                  onAdd(product.id);
-                  onClose();
-                }}
+                onClick={handleAdd}
                 disabled={product.stock <= 0}
               >
                 Add to cart

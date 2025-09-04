@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useCallback,
 } from "react";
@@ -14,9 +13,9 @@ import { createClientBrowser } from "@/lib/supabase/client";
 
 type CartData = {
   lines: CartLine[];
-  add: (productId: string, qty?: number) => void;
-  remove: (productId: string) => void;
-  setQty: (productId: string, qty: number) => void;
+  add: (productId: string, qty?: number) => Promise<void>;
+  remove: (productId: string) => Promise<void>;
+  setQty: (productId: string, qty: number) => Promise<void>;
   totalQty: number;
   userId: string | null;
   clear: () => void;
@@ -24,9 +23,9 @@ type CartData = {
 
 const Ctx = createContext<CartData>({
   lines: [],
-  add: () => {},
-  remove: () => {},
-  setQty: () => {},
+  add: async () => {},
+  remove: async () => {},
+  setQty: async () => {},
   totalQty: 0,
   userId: null,
   clear: () => {},
@@ -35,153 +34,130 @@ const Ctx = createContext<CartData>({
 export function CartDataProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClientBrowser(), []);
   const [lines, setLines] = useState<CartLine[]>([]);
-  const mergedOnce = useRef(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // auth listener: track user id
+  // Track auth (seed + subscribe)
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
+
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!mounted) return;
+      const { data: { user } } =
+        (await supabase.auth.getUser().catch(() => ({ data: { user: null } }))) as any;
+      if (!alive) return;
       setUserId(user?.id ?? null);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      setUserId(user?.id ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []); // no supabase dep
 
-  // when user signs in first time -> merge guest lines, then load server cart
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // don't re-run due to supabase fn identity
+
+  // Load server cart whenever auth changes
   useEffect(() => {
+    let alive = true;
+
     (async () => {
-      if (!userId) return; // not signed in
-      if (!mergedOnce.current) {
-        mergedOnce.current = true;
-        if (lines.length) {
-          await fetch("/api/cart/merge", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lines }),
-          }).catch(() => {});
-        }
+      if (!userId) {
+        // signed out → empty local view
+        if (alive) setLines([]);
+        return;
       }
+
       const res = await fetch("/api/cart", {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
       }).catch(() => null);
       const body = await res?.json().catch(() => null);
+      if (!alive) return;
+
       if (body?.ok && Array.isArray(body.lines)) {
         setLines(
           body.lines.map((r: any) => ({
-            productId: r.product_id,
-            quantity: r.quantity,
+            productId: r.product_id as string,
+            quantity: Number(r.quantity ?? 0),
           }))
         );
+      } else {
+        setLines([]);
       }
     })();
-  }, [userId]); // re-run on auth change
+
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   const clear = useCallback(() => {
+    // Client-only reset (server is cleared by /api/order-request after email send)
     setLines([]);
   }, []);
 
-  // local helpers with server sync if signed in
+  // Server-only cart mutations (require sign-in)
   async function add(productId: string, qty = 1) {
-    if (userId) {
-      // Call the server first so we get the clamped quantity
-      const res = await fetch("/api/cart/add", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity: qty }),
-      }).catch(() => null);
-
-      const body = await res?.json().catch(() => null);
-
-      if (body?.ok) {
-        const q: number = Number(body.quantity ?? 0);
-        setLines((prev) => {
-          if (q <= 0) return prev.filter((l) => l.productId !== productId);
-          const idx = prev.findIndex((l) => l.productId === productId);
-          if (idx === -1) return [...prev, { productId, quantity: q }];
-          const next = prev.slice();
-          next[idx] = { ...next[idx], quantity: q };
-          return next;
-        });
-      }
-      return;
+    if (!userId) return; // UI should route to sign-in before calling
+    const res = await fetch("/api/cart/add", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, quantity: qty }),
+    }).catch(() => null);
+    const body = await res?.json().catch(() => null);
+    if (body?.ok) {
+      const q = Number(body.quantity ?? 0);
+      setLines((prev) => {
+        if (q <= 0) return prev.filter((l) => l.productId === productId ? false : true);
+        const idx = prev.findIndex((l) => l.productId === productId);
+        if (idx === -1) return [...prev, { productId, quantity: q }];
+        const next = prev.slice();
+        next[idx] = { ...next[idx], quantity: q };
+        return next;
+      });
     }
-
-    // Guest fallback (local only), keep your previous optimistic logic
-    setLines((prev) => {
-      const found = prev.find((l) => l.productId === productId);
-      if (found) {
-        return prev.map((l) =>
-          l.productId === productId
-            ? { ...l, quantity: Math.min(99, l.quantity + qty) }
-            : l
-        );
-      }
-      return [...prev, { productId, quantity: Math.min(99, qty) }];
-    });
   }
 
   async function remove(productId: string) {
-    setLines((prev) => prev.filter((l) => l.productId !== productId));
-    if (userId) {
-      await fetch(`/api/cart/remove/${productId}`, {
-        method: "DELETE",
-        credentials: "include",
-      }).catch(() => {});
-    }
+    if (!userId) return;
+    const prev = lines;
+    setLines((p) => p.filter((l) => l.productId !== productId)); // optimistic
+    const ok = await fetch(`/api/cart/remove/${productId}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (!ok) setLines(prev); // rollback on failure
   }
 
   async function setQty(productId: string, qty: number) {
-    if (userId) {
-      const res = await fetch("/api/cart/set", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity: qty }),
-      }).catch(() => null);
-
-      const body = await res?.json().catch(() => null);
-
-      if (body?.ok) {
-        const q: number = Number(body.quantity ?? 0);
-        setLines((prev) => {
-          if (q <= 0) return prev.filter((l) => l.productId !== productId);
-          const idx = prev.findIndex((l) => l.productId === productId);
-          if (idx === -1) return [...prev, { productId, quantity: q }];
-          const next = prev.slice();
-          next[idx] = { ...next[idx], quantity: q };
-          return next;
-        });
-      }
-      return;
+    if (!userId) return;
+    const res = await fetch("/api/cart/set", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, quantity: qty }),
+    }).catch(() => null);
+    const body = await res?.json().catch(() => null);
+    if (body?.ok) {
+      const q = Number(body.quantity ?? 0);
+      setLines((prev) => {
+        if (q <= 0) return prev.filter((l) => l.productId !== productId);
+        const idx = prev.findIndex((l) => l.productId === productId);
+        if (idx === -1) return [...prev, { productId, quantity: q }];
+        const next = prev.slice();
+        next[idx] = { ...next[idx], quantity: q };
+        return next;
+      });
     }
-
-    // Guest fallback (local only)
-    setLines((prev) => {
-      if (qty <= 0) return prev.filter((l) => l.productId !== productId);
-      const idx = prev.findIndex((l) => l.productId === productId);
-      if (idx === -1)
-        return [...prev, { productId, quantity: Math.min(99, qty) }];
-      const next = prev.slice();
-      next[idx] = { ...next[idx], quantity: Math.min(99, qty) };
-      return next;
-    });
   }
 
   const totalQty = useMemo(
-    () => lines.reduce((s, l) => s + l.quantity, 0),
+    () => lines.reduce((sum, l) => sum + l.quantity, 0),
     [lines]
   );
 

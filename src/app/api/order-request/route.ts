@@ -124,8 +124,8 @@ export async function POST(req: Request) {
           <div style="color:#666;font-size:12px;">Qty: ${qty}</div>
         </td>
         <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">
-          $${fmt(price)}<br/>
-          <span style="color:#666;font-size:12px;">Line: $${fmt(
+          ₵${fmt(price)}<br/>
+          <span style="color:#666;font-size:12px;">Line: ₵${fmt(
             price * qty
           )}</span>
         </td>
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
       <tr>
         <td></td>
         <td style="padding:8px;text-align:right;font-weight:600;">Subtotal</td>
-        <td style="padding:8px;text-align:right;font-weight:600;">$${fmt(
+        <td style="padding:8px;text-align:right;font-weight:600;">₵${fmt(
           subtotalCents
         )} ${currency}</td>
       </tr>

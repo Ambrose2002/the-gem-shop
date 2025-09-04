@@ -1,5 +1,8 @@
+"use client";
+
 import type { Product } from "@/types/product";
 import Link from "next/link";
+import { useCart } from "@/contexts/cart-data";
 
 type Line = { product: Product; quantity: number };
 
@@ -8,9 +11,6 @@ type Props = {
   lines: Line[];
   subtotal: number;
   onClose: () => void;
-  onRemove: (id: string) => void;
-  onQty: (id: string, q: number) => void;
-  onCheckout: () => void;
 };
 
 function priceToGHS(cents: number) {
@@ -20,15 +20,9 @@ function priceToGHS(cents: number) {
   }).format(cents / 100);
 }
 
-export default function CartDrawer({
-  open,
-  lines,
-  subtotal,
-  onClose,
-  onRemove,
-  onQty,
-  onCheckout,
-}: Props) {
+export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
+  const { remove, setQty } = useCart();
+
   return (
     <div
       className={`fixed inset-y-0 right-0 z-30 w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
@@ -52,10 +46,7 @@ export default function CartDrawer({
             <p className="text-sm text-gray-600">Your cart is empty.</p>
           ) : (
             lines.map(({ product, quantity }) => (
-              <div
-                key={product.id}
-                className="flex items-center gap-3 rounded-xl border p-3"
-              >
+              <div key={product.id} className="flex items-center gap-3 rounded-xl border p-3">
                 <div className="h-16 w-16 overflow-hidden rounded-lg">
                   {product.images?.[0] ? (
                     <img
@@ -86,15 +77,12 @@ export default function CartDrawer({
                     <input
                       type="number"
                       min={1}
-                      max={Math.max(0, product.stock)} // ← stock-aware
-                      value={Math.min(quantity, Math.max(0, product.stock))} // keep UI in sync
+                      max={Math.max(0, product.stock)}
+                      value={Math.min(quantity, Math.max(0, product.stock))}
                       onChange={(e) => {
                         const raw = Number(e.target.value) || 0;
-                        const clamped = Math.max(
-                          1,
-                          Math.min(product.stock, raw)
-                        ); // ← stock-aware clamp
-                        onQty(product.id, clamped);
+                        const clamped = Math.max(1, Math.min(product.stock, raw));
+                        setQty(product.id, clamped);
                       }}
                       disabled={product.stock <= 0}
                       className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-100 disabled:text-gray-400"
@@ -102,12 +90,10 @@ export default function CartDrawer({
                     {product.stock <= 0 ? (
                       <span className="text-xs text-red-600">Out of stock</span>
                     ) : (
-                      <span className="text-xs text-gray-500">
-                        Max {product.stock}
-                      </span>
+                      <span className="text-xs text-gray-500">Max {product.stock}</span>
                     )}
                     <button
-                      onClick={() => onRemove(product.id)}
+                      onClick={() => remove(product.id)}
                       className="ml-auto rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100"
                     >
                       Remove
@@ -123,13 +109,11 @@ export default function CartDrawer({
             <span>Subtotal</span>
             <span className="font-semibold">{priceToGHS(subtotal)}</span>
           </div>
-          <p className="mb-3 text-xs text-gray-500">
-            Shipping calculated after purchase.
-          </p>
+          <p className="mb-3 text-xs text-gray-500">Shipping calculated after purchase.</p>
           <Link
             href={lines.length === 0 ? "#" : "/request-order"}
             onClick={(e) => {
-              if (lines.length === 0) e.preventDefault(); // block navigation
+              if (lines.length === 0) e.preventDefault();
             }}
             className={`block w-full rounded-xl px-5 py-3 text-center ${
               lines.length === 0

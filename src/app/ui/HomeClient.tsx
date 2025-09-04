@@ -12,9 +12,9 @@ type ProductIn = {
   id: string;
   title: string;
   description: string;
-  price: number;
+  price: number;     // in pesewas
   stock: number;
-  images: string[]; // ✅
+  images: string[];
   categories: string[];
 };
 
@@ -30,10 +30,10 @@ export default function HomeClient({
 }: {
   initialProducts: ProductIn[];
 }) {
-  const { open, isOpen, close } = useCartUI();
-  const { lines, add, remove, setQty } = useCart();
+  const { isOpen, close } = useCartUI();
+  const { lines } = useCart(); // ✅ only need lines now
 
-  // adapt to your existing ProductCard/ProductModal shape
+  // adapt ProductIn -> Product used by UI components
   const products: Product[] = useMemo(() => {
     return initialProducts.map((p) => ({
       id: p.id,
@@ -75,6 +75,7 @@ export default function HomeClient({
     });
   }, [products, category, maxPrice, query]);
 
+  // Build cart view (product + qty) from server-backed lines
   const cartDetailed = lines
     .map((line) => {
       const product = products.find((p) => p.id === line.productId);
@@ -86,11 +87,6 @@ export default function HomeClient({
     (sum, l) => sum + l.product.price * l.quantity,
     0
   );
-
-  function addToCart(productId: string, qty = 1) {
-    add(productId, qty);
-    open();
-  }
 
   function resetFilters() {
     setQuery("");
@@ -127,13 +123,12 @@ export default function HomeClient({
             </div>
           </div>
 
-          {/* BIG IMAGE (restored) */}
           {/* BIG IMAGE (brand logo) */}
           <div className="flex items-center justify-center rounded-2xl bg-white">
             <img
-              src="/brand/logo.png" // ⬅️ file path in /public
+              src="/brand/logo.png"
               alt="The Gem Shop logo"
-              className="h-64 w-auto rounded-2xl object-contain md:h-80" // scale nicely
+              className="h-64 w-auto rounded-2xl object-contain md:h-80"
               loading="eager"
             />
           </div>
@@ -194,7 +189,6 @@ export default function HomeClient({
                 key={p.id}
                 product={p}
                 onQuickView={(prod) => setActiveProduct(prod)}
-                onAddToCart={(id) => addToCart(id)}
               />
             ))}
           </div>
@@ -205,7 +199,6 @@ export default function HomeClient({
       <ProductModal
         product={activeProduct}
         onClose={() => setActiveProduct(null)}
-        onAdd={(id) => addToCart(id)}
       />
 
       {/* cart drawer */}
@@ -214,9 +207,6 @@ export default function HomeClient({
         onClose={close}
         lines={cartDetailed}
         subtotal={subtotal}
-        onRemove={(id) => remove(id)}
-        onQty={(id, q) => setQty(id, q)}
-        onCheckout={() => alert("Checkout placeholder.")}
       />
     </div>
   );

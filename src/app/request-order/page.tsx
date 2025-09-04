@@ -4,50 +4,42 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/cart-data";
 
-// simple GHS formatter (uses pesewas → cedis)
 function formatMoney(amountMinor: number) {
   return new Intl.NumberFormat("en-GH", {
     style: "currency",
     currency: "GHS",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
   }).format((amountMinor || 0) / 100);
 }
 
 type CartViewItem = {
   productId: string;
   title: string;
-  price_cents: number;
+  price_cents: number;   // per-unit in pesewas
   quantity: number;
+  line_total: number;    // price_cents * quantity
   image?: string | null;
 };
 
 export default function RequestOrderPage() {
   const r = useRouter();
-  const { lines, userId } = useCart();
+  const { userId, clear } = useCart();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({ phone: "", city: "" });
 
-  // UI state for cart preview
   const [items, setItems] = useState<CartViewItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
-
-  // subtotal (pesewas)
   const subtotal = useMemo(
-    () => items.reduce((s, it) => s + it.price_cents * it.quantity, 0),
+    () => items.reduce((s, it) => s + it.line_total, 0),
     [items]
   );
 
-  // Load a detailed view of the cart (with product info + first image)
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
       setLoadingCart(true);
       setErr(null);
       try {
-        // Ensure we have a server session
         const me = await fetch("/api/auth/me", {
           method: "GET",
           credentials: "include",
@@ -57,16 +49,14 @@ export default function RequestOrderPage() {
           if (!cancelled) setItems([]);
           return;
         }
-
-        // Load a server-built preview of the cart
-        const preview = await fetch("/api/cart/preview", {
+        const res = await fetch("/api/cart/details", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
         });
-        const data = await preview.json();
+        const data = await res.json();
         if (!cancelled) {
-          setItems(Array.isArray(data.items) ? data.items : []);
+          setItems(Array.isArray(data?.items) ? data.items : []);
         }
       } catch (e: any) {
         if (!cancelled) setErr(e.message ?? "Failed to load cart");
@@ -74,18 +64,14 @@ export default function RequestOrderPage() {
         if (!cancelled) setLoadingCart(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]); // refresh when auth changes
+    return () => { cancelled = true; };
+  }, [userId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setSaving(true);
     try {
-      // Check auth (and include cookies)
       const me = await fetch("/api/auth/me", {
         method: "GET",
         credentials: "include",
@@ -93,17 +79,6 @@ export default function RequestOrderPage() {
       });
       if (!me.ok) throw new Error("Please sign in before sending your order.");
 
-      // Merge again just before sending (belt & suspenders)
-      if (lines?.length) {
-        await fetch("/api/cart/merge", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lines }),
-        });
-      }
-
-      // Send the order email with phone + city
       const res = await fetch("/api/order-request", {
         method: "POST",
         credentials: "include",
@@ -111,10 +86,9 @@ export default function RequestOrderPage() {
         body: JSON.stringify(form),
       });
       const body = await res.json();
-      if (!res.ok || !body?.ok)
-        throw new Error(body?.error || "Failed to send request");
+      if (!res.ok || !body?.ok) throw new Error(body?.error || "Failed to send request");
 
-      // Navigate to success page (server clears cart; your client can also clear if you added a clear() fn)
+      clear(); // instant UI reset; server also cleared items
       r.replace("/request-order/sent");
     } catch (e: any) {
       setErr(e.message ?? "Failed to send request");
@@ -132,7 +106,7 @@ export default function RequestOrderPage() {
           payment and delivery.
         </p>
 
-        {/* Simple form: phone + city */}
+        {/* Phone + City */}
         <div className="mt-6 grid gap-2">
           <label className="text-sm text-gray-700">Phone</label>
           <input
@@ -143,7 +117,6 @@ export default function RequestOrderPage() {
             placeholder="+233 55 123 4567"
           />
         </div>
-
         <div className="grid gap-2">
           <label className="text-sm text-gray-700">City</label>
           <input
@@ -164,14 +137,14 @@ export default function RequestOrderPage() {
           ) : items.length === 0 ? (
             <p className="mt-2 text-sm text-gray-500">Your cart is empty.</p>
           ) : (
-            <div className="mt-3 divide-y divide-gray-200 border border-gray-200 rounded-xl">
+            <div className="mt-3 divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200">
               {items.map((it) => (
                 <div key={it.productId} className="flex items-center gap-3 p-3">
                   <div className="h-14 w-14 overflow-hidden rounded-md bg-gray-100">
                     {it.image ? (
                       <img
                         src={it.image}
-                        alt=""
+                        alt={it.title}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -188,8 +161,8 @@ export default function RequestOrderPage() {
                       Qty: {it.quantity}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-900">
-                    {formatMoney(it.price_cents * it.quantity)}
+                  <div className="text-sm font-semibold text-gray-900">
+                    {formatMoney(it.line_total)}
                   </div>
                 </div>
               ))}
@@ -211,7 +184,7 @@ export default function RequestOrderPage() {
             disabled={saving || items.length === 0}
             className={`rounded-xl px-5 py-3 ${
               items.length === 0
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                ? "cursor-not-allowed bg-gray-300 text-gray-500"
                 : "bg-black text-white"
             } disabled:opacity-50`}
           >

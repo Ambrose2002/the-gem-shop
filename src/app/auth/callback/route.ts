@@ -1,38 +1,41 @@
+// src/app/auth/callback/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const code = url.searchParams.get("code");
   const next = url.searchParams.get("next") ?? "/";
+  const code = url.searchParams.get("code");        // 👈 read the auth code
 
-  const cookieStore = await cookies();
+  // If no code, just bounce home (or add an error query)
+  if (!code) {
+    return NextResponse.redirect(new URL("/", url.origin));
+  }
+
+  const jar = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return jar.getAll(); // [{ name, value, ... }]
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // In a Route Handler, cookies() is writeable
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: "", ...options });
+        setAll(list) {
+          list.forEach(({ name, value, options }) => {
+            jar.set({ name, value, ...options }); // Route Handler can write cookies
+          });
         },
       },
     }
   );
 
-  if (code) {
-    // This sets the auth cookies here (allowed in a Route Handler)
-    await supabase.auth.exchangeCodeForSession(code);
-  }
+  // Exchange the provided ?code=... for a session and set cookies
+  await supabase.auth.exchangeCodeForSession(code); // 👈 pass the code explicitly
 
-  // Redirect back to your app
   return NextResponse.redirect(new URL(next, url.origin));
 }

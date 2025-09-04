@@ -183,10 +183,10 @@ export default function NavbarClient({
           <a className="hover:underline" href="/#shop">
             Shop
           </a>
-          <a className="hover:underline" href="/#">
+          <a className="hover:underline" href="/about">
             About
           </a>
-          <a className="hover:underline" href="/#">
+          <a className="hover:underline" href="/contact">
             Contact
           </a>
         </nav>

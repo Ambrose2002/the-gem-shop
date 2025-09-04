@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClientBrowser } from "@/lib/supabase/client";
+import Link from "next/link";
 
 type Product = {
   id: string;
@@ -138,8 +139,8 @@ export default function EditForm({
 
       router.replace("/admin/products");
       router.refresh();
-    } catch (e: any) {
-      setErr(e.message ?? "Failed to save changes");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to save changes");
     } finally {
       setSaving(false);
     }
@@ -157,8 +158,8 @@ export default function EditForm({
       if (!res.ok || !body?.ok)
         throw new Error(body?.error || "Failed to delete image");
       router.refresh();
-    } catch (e: any) {
-      alert(e.message ?? "Failed to delete image");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to delete image");
     } finally {
       setBusyImageId(null);
     }
@@ -344,9 +345,9 @@ export default function EditForm({
         >
           Permanently delete
         </button>
-        <a href="/admin/products" className="rounded-lg border px-4 py-2">
+        <Link href="/admin/products" className="rounded-lg border px-4 py-2">
           Back
-        </a>
+        </Link>
       </div>
     </form>
   );

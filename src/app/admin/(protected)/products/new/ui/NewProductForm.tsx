@@ -59,8 +59,8 @@ export default function NewProductForm({ categories }: { categories: Category[] 
 
       router.replace("/admin/products");
       router.refresh();
-    } catch (e: any) {
-      setErr(e.message ?? "Failed to save product.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to save product.");
     } finally {
       setSaving(false);
     }

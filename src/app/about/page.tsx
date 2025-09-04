@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function AboutPage() {
   return (
@@ -39,12 +40,12 @@ export default function AboutPage() {
         </p>
 
         <div className="mt-10 text-center">
-          <a
+          <Link
             href="/contact"
             className="inline-block rounded-lg bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition"
           >
             Get in Touch
-          </a>
+          </Link>
         </div>
       </div>
     </main>

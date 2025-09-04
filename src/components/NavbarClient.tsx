@@ -6,6 +6,7 @@ import { createClientBrowser } from "@/lib/supabase/client";
 import { useCartUI } from "@/contexts/cart-ui";
 import { useCart } from "@/contexts/cart-data";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function NavbarClient({
   initialUserName,
@@ -161,7 +162,7 @@ export default function NavbarClient({
     <header className="sticky top-0 z-10 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
-          <a href="/" className="inline-flex items-center gap-3">
+          <Link href="/" className="inline-flex items-center gap-3">
             <Image
               src="/brand/logo.png" // put your logo at public/brand/logo.png
               alt="The Gem Shop"
@@ -171,7 +172,7 @@ export default function NavbarClient({
               priority
             />
             <span className="text-lg font-semibold">The Gem Shop</span>
-          </a>
+          </Link>
           {showGreeting && (
             <span className="ml-3 hidden text-sm text-gray-600 md:inline">
               Welcome, {userName.split(" ")[0]}
@@ -180,15 +181,15 @@ export default function NavbarClient({
         </div>
 
         <nav className="hidden gap-6 md:flex">
-          <a className="hover:underline" href="/#shop">
+          <Link className="hover:underline" href="/#shop">
             Shop
-          </a>
-          <a className="hover:underline" href="/about">
+          </Link>
+          <Link className="hover:underline" href="/about">
             About
-          </a>
-          <a className="hover:underline" href="/contact">
+          </Link>
+          <Link className="hover:underline" href="/contact">
             Contact
-          </a>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">

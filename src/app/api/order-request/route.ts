@@ -178,9 +178,9 @@ export async function POST(req: Request) {
     await supabase.from("cart_items").delete().eq("cart_id", cart.id);
 
     return NextResponse.json({ ok: true, cleared: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { ok: false, error: e.message ?? "Email failed" },
+      { ok: false, error: e instanceof Error ? e.message : "Email failed" },
       { status: 500 }
     );
   }

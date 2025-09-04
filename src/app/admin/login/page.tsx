@@ -29,8 +29,8 @@ export default function AdminLoginPage() {
       // Ensure server components re-read the new session cookies
       router.replace(body.redirect || "/admin/products");
       router.refresh();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to sign in");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to sign in");
     } finally {
       setLoading(false);
     }

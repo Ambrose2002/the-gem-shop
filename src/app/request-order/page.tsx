@@ -58,8 +58,8 @@ export default function RequestOrderPage() {
         if (!cancelled) {
           setItems(Array.isArray(data?.items) ? data.items : []);
         }
-      } catch (e: any) {
-        if (!cancelled) setErr(e.message ?? "Failed to load cart");
+      } catch (e: unknown) {
+        if (!cancelled) setErr(e instanceof Error ? e.message : "Failed to load cart");
       } finally {
         if (!cancelled) setLoadingCart(false);
       }
@@ -90,8 +90,8 @@ export default function RequestOrderPage() {
 
       clear(); // instant UI reset; server also cleared items
       r.replace("/request-order/sent");
-    } catch (e: any) {
-      setErr(e.message ?? "Failed to send request");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to send request");
     } finally {
       setSaving(false);
     }

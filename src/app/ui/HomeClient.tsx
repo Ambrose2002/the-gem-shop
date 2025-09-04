@@ -7,6 +7,7 @@ import ProductModal from "@/components/ProductModal";
 import CartDrawer from "@/components/CartDrawer";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/types/product";
+import Link from "next/link";
 
 type ProductIn = {
   id: string;
@@ -107,12 +108,12 @@ export default function HomeClient({
               Minimal, timeless pieces designed for everyday elegance.
             </p>
             <div className="mt-6 flex gap-3">
-              <a
+              <Link
                 href="#shop"
                 className="rounded-2xl bg-black px-5 py-3 text-white shadow hover:opacity-90"
               >
                 Shop collection
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={resetFilters}

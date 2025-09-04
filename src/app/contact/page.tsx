@@ -1,3 +1,4 @@
+import Link from "next/link";
 export default function ContactPage() {
   return (
     <main className="flex flex-col items-center justify-center px-6 py-16 bg-gray-50 min-h-screen">
@@ -26,12 +27,12 @@ export default function ContactPage() {
         </div>
 
         <div className="mt-10 text-center">
-          <a
+          <Link
             href="tel:+2332404431954"
             className="inline-block rounded-lg bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition"
           >
             Call Now
-          </a>
+          </Link>
         </div>
       </div>
     </main>

@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartDataProvider>
           <CartUIProvider>
             <Navbar />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 bg-white-800">{children}</main>
             <Footer />
           </CartUIProvider>
         </CartDataProvider>

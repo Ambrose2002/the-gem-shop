@@ -6,8 +6,8 @@ import { CartUIProvider } from "@/contexts/cart-ui";
 import { CartDataProvider } from "@/contexts/cart-data";
 
 export const metadata: Metadata = {
-  title: "Lumina Jewelry",
-  description: "Handcrafted, timeless pieces for everyday elegance.",
+  title: "The Gem Shop",
+  description: "Beautiful, timeless pieces for everyday elegance.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -101,7 +101,7 @@ export default function HomeClient({
         <div className="grid gap-6 rounded-3xl bg-white p-8 shadow-sm md:grid-cols-2">
           <div className="flex flex-col justify-center">
             <h1 className="mb-2 text-3xl font-semibold text-gray-900 md:text-4xl">
-              Handcrafted Jewelry
+              Refined Jewelry Collection
             </h1>
             <p className="text-gray-600">
               Minimal, timeless pieces designed for everyday elegance.
@@ -169,10 +169,10 @@ export default function HomeClient({
               }
             >
               <option value="">No price cap</option>
-              <option value="6000">Up to {toGHS(6000)}</option>
+              <option value="2000">Up to {toGHS(2000)}</option>
+              <option value="4000">Up to {toGHS(4000)}</option>
               <option value="8000">Up to {toGHS(8000)}</option>
-              <option value="10000">Up to {toGHS(10000)}</option>
-              <option value="15000">Up to {toGHS(15000)}</option>
+              <option value="12000">Up to {toGHS(12000)}</option>
             </select>
           </div>
         </div>

@@ -6,8 +6,8 @@ type Props = {
   onAddToCart?: (id: string) => void;
 };
 
-function priceToUSD(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100);
+function priceToGHS(cents: number) {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "GHS" }).format(cents / 100);
 }
 
 export default function ProductCard({ product, onQuickView, onAddToCart }: Props) {
@@ -32,7 +32,7 @@ export default function ProductCard({ product, onQuickView, onAddToCart }: Props
             <h3 className="text-sm font-medium text-gray-900">{product.title}</h3>
             <p className="text-xs text-gray-500">{product.material}</p>
           </div>
-          <div className="text-sm font-semibold">{priceToUSD(product.price)}</div>
+          <div className="text-sm font-semibold">{priceToGHS(product.price)}</div>
         </div>
         <div className="mt-3 flex gap-2">
           <button

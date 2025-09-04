@@ -15,10 +15,10 @@ type Product = {
 };
 type ImageRow = { id: string; url: string; sort: number };
 
-function centsToUsd(cents: number) {
+function pesewasToGhs(cents: number) {
   return (cents / 100).toFixed(2);
 }
-function usdToCents(v: string) {
+function ghsToPesewas(v: string) {
   return Math.round((Number(v) || 0) * 100);
 }
 
@@ -63,7 +63,7 @@ export default function EditForm({
 
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description ?? "");
-  const [priceUsd, setPriceUsd] = useState(centsToUsd(initial.price_cents));
+  const [priceGhs, setpriceGhs] = useState(pesewasToGhs(initial.price_cents));
   const [stock, setStock] = useState(String(initial.stock));
   const [status, setStatus] = useState<Product["status"]>(initial.status);
   const [newFiles, setNewFiles] = useState<FileList | null>(null);
@@ -112,7 +112,7 @@ export default function EditForm({
         body: JSON.stringify({
           title,
           description,
-          price_cents: usdToCents(priceUsd),
+          price_cents: ghsToPesewas(priceGhs),
           stock: Math.max(0, Number(stock) || 0),
           status,
           addCategoryIds,
@@ -212,14 +212,14 @@ export default function EditForm({
 
       <div className="grid grid-cols-2 gap-4">
         <label className="grid gap-2 text-sm">
-          Price (USD)
+          Price (GHS)
           <input
             type="number"
             min={0}
             step="0.01"
             className="rounded-lg border border-gray-300 px-3 py-2 text-gray-600"
-            value={priceUsd}
-            onChange={(e) => setPriceUsd(e.target.value)}
+            value={priceGhs}
+            onChange={(e) => setpriceGhs(e.target.value)}
           />
         </label>
         <label className="grid gap-2 text-sm">

@@ -1,4 +1,5 @@
 import type { Product } from "@/types/product";
+import Link from "next/link";
 
 type Line = { product: Product; quantity: number };
 
@@ -12,10 +13,10 @@ type Props = {
   onCheckout: () => void;
 };
 
-function priceToUSD(cents: number) {
+function priceToGHS(cents: number) {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: "USD",
+    currency: "GHS",
   }).format(cents / 100);
 }
 
@@ -77,7 +78,7 @@ export default function CartDrawer({
                       </div>
                     </div>
                     <div className="text-sm font-semibold">
-                      {priceToUSD(product.price * quantity)}
+                      {priceToGHS(product.price * quantity)}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
@@ -120,18 +121,25 @@ export default function CartDrawer({
         <div className="border-t p-4">
           <div className="mb-3 flex items-center justify-between text-sm">
             <span>Subtotal</span>
-            <span className="font-semibold">{priceToUSD(subtotal)}</span>
+            <span className="font-semibold">{priceToGHS(subtotal)}</span>
           </div>
           <p className="mb-3 text-xs text-gray-500">
-            Shipping calculated after purchase. Taxes shown at checkout.
+            Shipping calculated after purchase.
           </p>
-          <button
-            onClick={onCheckout}
-            disabled={lines.length === 0}
-            className="w-full rounded-xl bg-black px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50"
+          <Link
+            href={lines.length === 0 ? "#" : "/request-order"}
+            onClick={(e) => {
+              if (lines.length === 0) e.preventDefault(); // block navigation
+            }}
+            className={`block w-full rounded-xl px-5 py-3 text-center ${
+              lines.length === 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-black text-white hover:bg-gray-800"
+            }`}
+            aria-disabled={lines.length === 0}
           >
-            Checkout
-          </button>
+            Contact store to order
+          </Link>
         </div>
       </div>
     </div>

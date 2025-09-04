@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import type { CartLine } from "@/types/product";
 import { createClientBrowser } from "@/lib/supabase/client";
@@ -17,6 +18,8 @@ type CartData = {
   remove: (productId: string) => void;
   setQty: (productId: string, qty: number) => void;
   totalQty: number;
+  userId: string | null;
+  clear: () => void;
 };
 
 const Ctx = createContext<CartData>({
@@ -25,6 +28,8 @@ const Ctx = createContext<CartData>({
   remove: () => {},
   setQty: () => {},
   totalQty: 0,
+  userId: null,
+  clear: () => {},
 });
 
 export function CartDataProvider({ children }: { children: React.ReactNode }) {
@@ -61,12 +66,16 @@ export function CartDataProvider({ children }: { children: React.ReactNode }) {
         if (lines.length) {
           await fetch("/api/cart/merge", {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ lines }),
           }).catch(() => {});
         }
       }
-      const res = await fetch("/api/cart", { method: "GET" }).catch(() => null);
+      const res = await fetch("/api/cart", {
+        method: "GET",
+        credentials: "include",
+      }).catch(() => null);
       const body = await res?.json().catch(() => null);
       if (body?.ok && Array.isArray(body.lines)) {
         setLines(
@@ -79,12 +88,17 @@ export function CartDataProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [userId]); // re-run on auth change
 
+  const clear = useCallback(() => {
+    setLines([]);
+  }, []);
+
   // local helpers with server sync if signed in
   async function add(productId: string, qty = 1) {
     if (userId) {
       // Call the server first so we get the clamped quantity
       const res = await fetch("/api/cart/add", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, quantity: qty }),
       }).catch(() => null);
@@ -122,9 +136,10 @@ export function CartDataProvider({ children }: { children: React.ReactNode }) {
   async function remove(productId: string) {
     setLines((prev) => prev.filter((l) => l.productId !== productId));
     if (userId) {
-      await fetch(`/api/cart/remove/${productId}`, { method: "DELETE" }).catch(
-        () => {}
-      );
+      await fetch(`/api/cart/remove/${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).catch(() => {});
     }
   }
 
@@ -132,6 +147,7 @@ export function CartDataProvider({ children }: { children: React.ReactNode }) {
     if (userId) {
       const res = await fetch("/api/cart/set", {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, quantity: qty }),
       }).catch(() => null);
@@ -170,12 +186,14 @@ export function CartDataProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ lines, add, remove, setQty, totalQty }}>
+    <Ctx.Provider
+      value={{ lines, add, remove, setQty, totalQty, userId, clear }}
+    >
       {children}
     </Ctx.Provider>
   );
 }
 
-export function useCartData() {
+export function useCart() {
   return useContext(Ctx);
 }

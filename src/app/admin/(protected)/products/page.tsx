@@ -49,7 +49,7 @@ export default async function AdminProducts() {
               <tr key={p.id} className="border-t">
                 <td className="px-4 py-3 text-gray-600">{p.title}</td>
                 <td className="px-4 py-3 text-gray-600">
-                  ${(p.price_cents / 100).toFixed(2)}
+                  ₵{(p.price_cents / 100).toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-gray-600">{p.stock}</td>
                 <td className="px-4 py-3 text-gray-600">{p.status}</td>

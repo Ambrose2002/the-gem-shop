@@ -89,6 +89,7 @@ export default function ProductModal({ product, onClose, onAdd }: Props) {
           <div>
             <p className="mt-2 text-sm text-gray-600">{product.description}</p>
             <ul className="mt-4 list-disc pl-5 text-sm text-gray-600">
+              <li>Price: {"GHS " + product.price / 100.0}</li>
               <li>Category: {product.categories?.length ? product.categories.join(", ") : "—"}</li>
               <li>
                 Availability:{" "}

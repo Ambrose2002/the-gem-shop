@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useCartUI } from "@/contexts/cart-ui";
-import { useCartData } from "@/contexts/cart-data";
+import { useCart } from "@/contexts/cart-data";
 import ProductModal from "@/components/ProductModal";
 import CartDrawer from "@/components/CartDrawer";
 import ProductCard from "@/components/ProductCard";
@@ -18,10 +18,10 @@ type ProductIn = {
   categories: string[];
 };
 
-function toUSD(cents: number) {
+function toGHS(cents: number) {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: "USD",
+    currency: "GHS",
   }).format(cents / 100);
 }
 
@@ -31,7 +31,7 @@ export default function HomeClient({
   initialProducts: ProductIn[];
 }) {
   const { open, isOpen, close } = useCartUI();
-  const { lines, add, remove, setQty } = useCartData();
+  const { lines, add, remove, setQty } = useCart();
 
   // adapt to your existing ProductCard/ProductModal shape
   const products: Product[] = useMemo(() => {
@@ -174,10 +174,10 @@ export default function HomeClient({
               }
             >
               <option value="">No price cap</option>
-              <option value="6000">Up to {toUSD(6000)}</option>
-              <option value="8000">Up to {toUSD(8000)}</option>
-              <option value="10000">Up to {toUSD(10000)}</option>
-              <option value="15000">Up to {toUSD(15000)}</option>
+              <option value="6000">Up to {toGHS(6000)}</option>
+              <option value="8000">Up to {toGHS(8000)}</option>
+              <option value="10000">Up to {toGHS(10000)}</option>
+              <option value="15000">Up to {toGHS(15000)}</option>
             </select>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClientBrowser } from "@/lib/supabase/client";
 import { useCartUI } from "@/contexts/cart-ui";
-import { useCartData } from "@/contexts/cart-data";
+import { useCart } from "@/contexts/cart-data";
 import Image from "next/image";
 
 export default function NavbarClient({
@@ -16,7 +16,7 @@ export default function NavbarClient({
   const router = useRouter();
   const pathname = usePathname();
   const { open } = useCartUI();
-  const { totalQty } = useCartData();
+  const { totalQty } = useCart();
   const [userName, setUserName] = useState<string | null>(initialUserName);
 
   useEffect(() => {

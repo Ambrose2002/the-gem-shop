@@ -25,12 +25,20 @@ export default async function AdminProducts() {
     <AdminShell
       title="Products"
       actions={
-        <Link
-          href="/admin/products/new"
-          className="rounded-lg bg-black px-4 py-2 text-white"
-        >
-          New product
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/products/new"
+            className="rounded-lg bg-black px-4 py-2 text-white"
+          >
+            New product
+          </Link>
+          <Link
+            href="/admin/orders"
+            className="rounded-lg bg-gray-600 px-4 py-2 text-white"
+          >
+            Orders
+          </Link>
+        </div>
       }
     >
       <div className="overflow-auto rounded-xl border">

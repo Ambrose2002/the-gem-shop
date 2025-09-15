@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/cart-data";
 
+const GH_PHONE = /^(\+233\d{9}|0\d{9})$/; // +233XXXXXXXXX or 0XXXXXXXXX
+const isNonEmpty = (s: string) => s.trim().length > 1;
+
 function formatMoney(amountMinor: number) {
   return new Intl.NumberFormat("en-GH", {
     style: "currency",
@@ -25,7 +28,15 @@ export default function RequestOrderPage() {
   const { userId, clear } = useCart();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [form, setForm] = useState({ phone: "", city: "" });
+  const [form, setForm] = useState({ phone: "", city: "", address: "" });
+
+  const [touched, setTouched] = useState({ phone: false, city: false, address: false });
+  const errors = {
+    phone: !GH_PHONE.test(form.phone.trim()) ? "Enter a valid Ghana phone (e.g. +233 55 123 4567 or 0551234567)" : null,
+    city: !isNonEmpty(form.city) ? "City is required" : null,
+    address: !isNonEmpty(form.address) ? "Address is required" : null,
+  } as const;
+  const isValid = !errors.phone && !errors.city && !errors.address;
 
   const [items, setItems] = useState<CartViewItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
@@ -71,27 +82,37 @@ export default function RequestOrderPage() {
     e.preventDefault();
     setErr(null);
     setSaving(true);
+    // client-side validate
+    setTouched({ phone: true, city: true, address: true });
+    if (!isValid) {
+      setSaving(false);
+      return;
+    }
     try {
+      // Ensure signed in
       const me = await fetch("/api/auth/me", {
         method: "GET",
         credentials: "include",
         cache: "no-store",
       });
-      if (!me.ok) throw new Error("Please sign in before sending your order.");
+      if (!me.ok) throw new Error("Please sign in to continue to checkout.");
 
-      const res = await fetch("/api/order-request", {
+      // Create order with phone/city/address and get Paystack URL
+      const res = await fetch("/api/checkout", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ phone: form.phone, city: form.city, address: form.address }),
       });
       const body = await res.json();
-      if (!res.ok || !body?.ok) throw new Error(body?.error || "Failed to send request");
+      if (!res.ok || !body?.url) {
+        throw new Error(body?.error || "Failed to start checkout");
+      }
 
-      clear(); // instant UI reset; server also cleared items
-      r.replace("/request-order/sent");
+      // Redirect to Paystack hosted checkout
+      window.location.href = body.url as string;
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Failed to send request");
+      setErr(e instanceof Error ? e.message : "Failed to start checkout");
     } finally {
       setSaving(false);
     }
@@ -102,30 +123,52 @@ export default function RequestOrderPage() {
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-2xl font-semibold text-gray-900">Request Order</h1>
         <p className="mt-2 text-gray-600">
-          Send your cart to the store owner. They’ll contact you to arrange
-          payment and delivery.
+          Enter your contact details to continue. On the next step, you’ll pay securely via Paystack (Mobile Money or Card).
         </p>
 
-        {/* Phone + City */}
+        {/* Phone + City + Address */}
         <div className="mt-6 grid gap-2">
           <label className="text-sm text-gray-700">Phone</label>
           <input
             required
-            className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700"
+            className={`rounded-lg border px-3 py-2 text-gray-700 ${errors.phone && touched.phone ? 'border-red-500' : 'border-gray-300'}`}
             value={form.phone}
+            onBlur={() => setTouched(v => ({ ...v, phone: true }))}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            placeholder="+233 55 123 4567"
+            placeholder="+233 55 123 4567 or 0551234567"
           />
+          {errors.phone && touched.phone && (
+            <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
+          )}
         </div>
         <div className="grid gap-2">
           <label className="text-sm text-gray-700">City</label>
           <input
             required
-            className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700"
+            className={`rounded-lg border px-3 py-2 text-gray-700 ${errors.city && touched.city ? 'border-red-500' : 'border-gray-300'}`}
             value={form.city}
+            onBlur={() => setTouched(v => ({ ...v, city: true }))}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
             placeholder="Accra"
           />
+          {errors.city && touched.city && (
+            <p className="text-xs text-red-600 mt-1">{errors.city}</p>
+          )}
+        </div>
+        <div className="grid gap-2">
+          <label className="text-sm text-gray-700">Address</label>
+          <textarea
+            required
+            rows={3}
+            className={`rounded-lg border px-3 py-2 text-gray-700 ${errors.address && touched.address ? 'border-red-500' : 'border-gray-300'}`}
+            value={form.address}
+            onBlur={() => setTouched(v => ({ ...v, address: true }))}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="House number / Street, Area, Landmark"
+          />
+          {errors.address && touched.address && (
+            <p className="text-xs text-red-600 mt-1">{errors.address}</p>
+          )}
         </div>
 
         {/* Cart Preview */}
@@ -181,14 +224,14 @@ export default function RequestOrderPage() {
           {err && <p className="text-sm text-red-600">{err}</p>}
           <button
             type="submit"
-            disabled={saving || items.length === 0}
+            disabled={saving || items.length === 0 || !isValid}
             className={`rounded-xl px-5 py-3 ${
-              items.length === 0
+              items.length === 0 || !isValid
                 ? "cursor-not-allowed bg-gray-300 text-gray-500"
                 : "bg-black text-white"
             } disabled:opacity-50`}
           >
-            {saving ? "Sending…" : "Send to store owner"}
+            {saving ? "Redirecting…" : "Pay with Paystack"}
           </button>
         </form>
       </main>

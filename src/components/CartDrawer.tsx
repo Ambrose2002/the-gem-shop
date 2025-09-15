@@ -3,6 +3,7 @@
 import type { Product } from "@/types/product";
 import Link from "next/link";
 import { useCart } from "@/contexts/cart-data";
+import { useRouter } from "next/navigation";
 
 type Line = { product: Product; quantity: number };
 
@@ -20,8 +21,29 @@ function priceToGHS(cents: number) {
   }).format(cents / 100);
 }
 
+async function startCheckout() {
+  try {
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      credentials: "include",
+    });
+    const body = await res.json();
+    if (body?.url) {
+      window.location.href = body.url; // go to Paystack hosted checkout
+    } else {
+      alert(body?.error ?? "Could not start checkout");
+    }
+  } catch {
+    alert("Network error starting checkout");
+  }
+}
+
 export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
   const { remove, setQty } = useCart();
+  const router = useRouter();
+
+  const hasItems = lines.length > 0;
+  const anyOutOfStock = lines.some((l) => l.product.stock <= 0);
 
   return (
     <div
@@ -46,7 +68,10 @@ export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
             <p className="text-sm text-gray-600">Your cart is empty.</p>
           ) : (
             lines.map(({ product, quantity }) => (
-              <div key={product.id} className="flex items-center gap-3 rounded-xl border p-3">
+              <div
+                key={product.id}
+                className="flex items-center gap-3 rounded-xl border p-3"
+              >
                 <div className="h-16 w-16 overflow-hidden rounded-lg">
                   {product.images?.[0] ? (
                     <img
@@ -65,7 +90,10 @@ export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
                     <div>
                       <div className="text-sm font-medium">{product.title}</div>
                       <div className="text-xs text-gray-500">
-                        {product.material} · {product.categories}
+                        {product.material} ·{" "}
+                        {Array.isArray(product.categories)
+                          ? product.categories.join(", ")
+                          : product.categories}
                       </div>
                     </div>
                     <div className="text-sm font-semibold">
@@ -81,7 +109,10 @@ export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
                       value={Math.min(quantity, Math.max(0, product.stock))}
                       onChange={(e) => {
                         const raw = Number(e.target.value) || 0;
-                        const clamped = Math.max(1, Math.min(product.stock, raw));
+                        const clamped = Math.max(
+                          1,
+                          Math.min(product.stock, raw)
+                        );
                         setQty(product.id, clamped);
                       }}
                       disabled={product.stock <= 0}
@@ -90,7 +121,9 @@ export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
                     {product.stock <= 0 ? (
                       <span className="text-xs text-red-600">Out of stock</span>
                     ) : (
-                      <span className="text-xs text-gray-500">Max {product.stock}</span>
+                      <span className="text-xs text-gray-500">
+                        Max {product.stock}
+                      </span>
                     )}
                     <button
                       onClick={() => remove(product.id)}
@@ -109,21 +142,27 @@ export default function CartDrawer({ open, lines, subtotal, onClose }: Props) {
             <span>Subtotal</span>
             <span className="font-semibold">{priceToGHS(subtotal)}</span>
           </div>
-          <p className="mb-3 text-xs text-gray-500">Shipping calculated after purchase.</p>
-          <Link
-            href={lines.length === 0 ? "#" : "/request-order"}
-            onClick={(e) => {
-              if (lines.length === 0) e.preventDefault();
+          <p className="mb-3 text-xs text-gray-500">
+            Shipping is handled after purchase.
+          </p>
+
+          {/* Continue to checkout: go to details form page */}
+          <button
+            onClick={() => {
+              if (!hasItems || anyOutOfStock) return;
+              onClose?.();
+              router.push("/request-order");
             }}
-            className={`block w-full rounded-xl px-5 py-3 text-center ${
-              lines.length === 0
+            disabled={!hasItems || anyOutOfStock}
+            className={`mb-2 w-full rounded-xl px-5 py-3 text-center ${
+              !hasItems || anyOutOfStock
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-black text-white hover:bg-gray-800"
             }`}
-            aria-disabled={lines.length === 0}
+            aria-disabled={!hasItems || anyOutOfStock}
           >
-            Contact store to order
-          </Link>
+            Continue to checkout
+          </button>
         </div>
       </div>
     </div>

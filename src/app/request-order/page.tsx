@@ -28,15 +28,16 @@ export default function RequestOrderPage() {
   const { userId, clear } = useCart();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [form, setForm] = useState({ phone: "", city: "", address: "" });
+  const [form, setForm] = useState({ phone: "", city: "", address: "", deliveryPay: "before" as "before" | "after" });
 
-  const [touched, setTouched] = useState({ phone: false, city: false, address: false });
+  const [touched, setTouched] = useState({ phone: false, city: false, address: false, deliveryPay: false });
   const errors = {
     phone: !GH_PHONE.test(form.phone.trim()) ? "Enter a valid Ghana phone (e.g. +233 55 123 4567 or 0551234567)" : null,
     city: !isNonEmpty(form.city) ? "City is required" : null,
     address: !isNonEmpty(form.address) ? "Address is required" : null,
+    deliveryPay: form.deliveryPay !== "before" && form.deliveryPay !== "after" ? "Select an option" : null,
   } as const;
-  const isValid = !errors.phone && !errors.city && !errors.address;
+  const isValid = !errors.phone && !errors.city && !errors.address && !errors.deliveryPay;
 
   const [items, setItems] = useState<CartViewItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
@@ -83,7 +84,7 @@ export default function RequestOrderPage() {
     setErr(null);
     setSaving(true);
     // client-side validate
-    setTouched({ phone: true, city: true, address: true });
+    setTouched({ phone: true, city: true, address: true, deliveryPay: true });
     if (!isValid) {
       setSaving(false);
       return;
@@ -102,7 +103,7 @@ export default function RequestOrderPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: form.phone, city: form.city, address: form.address }),
+        body: JSON.stringify({ phone: form.phone, city: form.city, address: form.address, deliveryPayment: form.deliveryPay }),
       });
       const body = await res.json();
       if (!res.ok || !body?.url) {
@@ -168,6 +169,41 @@ export default function RequestOrderPage() {
           />
           {errors.address && touched.address && (
             <p className="text-xs text-red-600 mt-1">{errors.address}</p>
+          )}
+        </div>
+
+        {/* Delivery payment preference */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700">Delivery payment</label>
+          <p className="text-xs text-gray-500 mb-2">Choose how you want to pay the delivery fee.</p>
+          <div className="flex gap-4">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="deliveryPay"
+                value="before"
+                checked={form.deliveryPay === "before"}
+                onChange={() => setForm({ ...form, deliveryPay: "before" })}
+                onBlur={() => setTouched(v => ({ ...v, deliveryPay: true }))}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-gray-800">Before delivery</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="deliveryPay"
+                value="after"
+                checked={form.deliveryPay === "after"}
+                onChange={() => setForm({ ...form, deliveryPay: "after" })}
+                onBlur={() => setTouched(v => ({ ...v, deliveryPay: true }))}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-gray-800">After delivery</span>
+            </label>
+          </div>
+          {errors.deliveryPay && touched.deliveryPay && (
+            <p className="text-xs text-red-600 mt-1">{errors.deliveryPay}</p>
           )}
         </div>
 

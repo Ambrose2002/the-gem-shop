@@ -3,10 +3,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 async function verifyTransaction(reference: string) {
@@ -88,7 +86,7 @@ export async function POST(req: NextRequest) {
     // Load enriched order details for email
     const { data: fullOrder } = await supabase
       .from("orders")
-      .select("id, amount_cents, phone, city, address, created_at")
+      .select("id, amount_cents, phone, city, address, delivery_payment, created_at")
       .eq("id", order.id)
       .maybeSingle();
 
@@ -115,7 +113,7 @@ export async function POST(req: NextRequest) {
         to: storeTo,
         subject: `Paid order ${order.id} — ${total}`,
         replyTo: customerEmail,
-        text: `A payment was confirmed via Paystack.\n\nOrder ID: ${order.id}\nTotal: ${total}\n\nItems:\n${linesText}\n\nCustomer contact:\n${contactBlock}\n\nPlaced at: ${fullOrder?.created_at ?? ""}`,
+        text: `A payment was confirmed via Paystack.\n\nOrder ID: ${order.id}\nTotal: ${total}\n\nItems:\n${linesText}\n\nCustomer contact:\n${contactBlock}\n\nDelivery payment: ${fullOrder?.delivery_payment === 'after' ? 'After delivery' : 'Before delivery'}\n\nPlaced at: ${fullOrder?.created_at ?? ""}`,
         html: `
           <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111">
             <h2>New paid order</h2>
@@ -129,6 +127,7 @@ export async function POST(req: NextRequest) {
               ${fullOrder?.city ? `City: ${fullOrder.city}<br/>` : ""}
               ${fullOrder?.address ? `Address: ${fullOrder.address}<br/>` : ""}
               ${customerEmail ? `Email: ${customerEmail}` : ""}
+              ${fullOrder?.delivery_payment ? `Delivery payment: ${fullOrder.delivery_payment === "after" ? "After delivery" : "Before delivery"}<br/>` : ""}
             </p>
             <p style="margin-top:16px;color:#666;">Placed at: ${fullOrder?.created_at ?? ""}</p>
           </div>

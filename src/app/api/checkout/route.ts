@@ -8,6 +8,7 @@ type CheckoutBody = {
   phone?: string;
   city?: string;
   address?: string;
+  deliveryPayment?: "before" | "after";
 };
 
 export async function POST(req: NextRequest) {
@@ -29,15 +30,21 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Parse request body for phone + city + address
-  const body: CheckoutBody = await req.json().catch(() => ({}));
+  // Parse request body for phone + city + address + deliveryPayment
+  const body: CheckoutBody = await req.json().catch(() => ({} as CheckoutBody));
   const phone = (body.phone ?? '').trim();
   const city = (body.city ?? '').trim();
   const address = (body.address ?? '').trim();
+  const deliveryPayment: "before" | "after" = body.deliveryPayment === "after" ? "after" : "before"; // default
+
   const GH_PHONE = /^(\+233\d{9}|0\d{9})$/;
   if (!GH_PHONE.test(phone) || city.length < 2 || address.length < 3) {
     return NextResponse.json({ error: "Invalid contact details" }, { status: 400 });
   }
+
+  // Helper to normalize product relation (can be object or array)
+  type ProductMini = { title: string; price_cents: number };
+  const pickProduct = (p: ProductMini | ProductMini[] | null): ProductMini | null => Array.isArray(p) ? (p[0] ?? null) : p;
 
   // Load cart and items (same as before)
   const { data: cart } = await supabase
@@ -53,18 +60,23 @@ export async function POST(req: NextRequest) {
     .select("product_id, quantity, products(title, price_cents)")
     .eq("cart_id", cart.id);
 
-  const lines = (items ?? []).map((r: any) => ({
-    product_id: r.product_id,
-    title: r.products?.title ?? "",
-    unit: r.products?.price_cents ?? 0,
-    qty: r.quantity ?? 0,
-    total: (r.products?.price_cents ?? 0) * (r.quantity ?? 0),
-  }));
+  const lines = (items ?? []).map((r: any) => {
+    const prod = pickProduct(r.products ?? null);
+    const unit = Number(prod?.price_cents ?? 0);
+    const qty = Number(r.quantity ?? 0);
+    return {
+      product_id: r.product_id as string,
+      title: (prod?.title ?? "") as string,
+      unit,
+      qty,
+      total: unit * qty,
+    };
+  });
 
   const amount_cents = lines.reduce((s, l) => s + l.total, 0);
   if (amount_cents <= 0) return NextResponse.json({ error: "Cart empty" }, { status: 400 });
 
-  // Insert order with phone + city + address
+  // Insert order with phone + city + address + delivery_payment
   const { data: order, error: ordErr } = await supabase
     .from("orders")
     .insert({
@@ -76,6 +88,7 @@ export async function POST(req: NextRequest) {
       phone,
       city,
       address,
+      delivery_payment: deliveryPayment,
     })
     .select("id")
     .single();
@@ -107,7 +120,7 @@ export async function POST(req: NextRequest) {
       currency: "GHS",
       reference: order.id,
       callback_url: `${site}/payment/callback`,
-      metadata: { order_id: order.id, phone, city, address, user_id: user.id },
+      metadata: { order_id: order.id, phone, city, address, deliveryPayment, user_id: user.id },
     }),
   });
 

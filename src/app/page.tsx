@@ -76,7 +76,14 @@ export default async function HomePage() {
     });
   }
 
-  const out: ProductOut[] = (products ?? []).map((p) => ({
+  const packageCategoryName = "package";
+
+  const filteredProducts = (products ?? []).filter((p) => {
+    const catNames = categoriesByProduct.get(p.id) ?? [];
+    return !catNames.some((name) => name?.toLowerCase() === packageCategoryName);
+  });
+
+  const out: ProductOut[] = filteredProducts.map((p) => ({
     id: p.id,
     title: p.title,
     description: p.description ?? "",

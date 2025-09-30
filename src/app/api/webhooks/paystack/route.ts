@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
+console.log("running the webhook...")
+
 const PAYSTACK_BASE = "https://api.paystack.co";
 async function verifyTransaction(reference: string) {
   const resp = await fetch(`${PAYSTACK_BASE}/transaction/verify/${reference}`, {
@@ -59,121 +61,108 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (!order) return NextResponse.json({ ok: true });
 
-  const { data: orderItems } = await supabase
-    .from("order_items")
-    .select("product_id, quantity")
-    .eq("order_id", order.id);
-
-  const shouldProcess = order.status === "pending";
-
-  if (shouldProcess) {
-    for (const row of orderItems ?? []) {
-      const qty = Number(row.quantity ?? 0);
-      const productId = row.product_id as string | undefined;
-      if (!productId || qty <= 0) continue;
-
+  // ✅ ONLY process if order is pending (like the working version)
+  if (order.status === "pending") {
+    // Decrement stock per item
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("product_id, quantity")
+      .eq("order_id", order.id);
+      
+    for (const it of items ?? []) {
       const { error: decErr } = await supabase.rpc("decrement_stock", {
-        p_product_id: productId,
-        p_qty: qty,
+        p_product_id: it.product_id,
+        p_qty: it.quantity,
       });
-
       if (decErr) {
+        // Log and continue; do not throw to avoid failing the webhook
         console.warn("[paystack webhook] decrement_stock failed", {
-          product_id: productId,
-          qty,
+          product_id: it.product_id,
+          qty: it.quantity,
           error: decErr.message,
         });
-
-        const { data: product } = await supabase
-          .from("products")
-          .select("stock")
-          .eq("id", productId)
-          .maybeSingle();
-        if (product && typeof product.stock !== "undefined") {
-          const nextStock = Math.max(0, Number(product.stock ?? 0) - qty);
-          await supabase
-            .from("products")
-            .update({ stock: nextStock })
-            .eq("id", productId);
-        }
       }
     }
 
+    // Mark paid
     await supabase
       .from("orders")
       .update({ status: "paid" })
       .eq("id", order.id);
-  }
 
-  const { data: cart } = await supabase
-    .from("carts")
-    .select("id")
-    .eq("user_id", order.user_id)
-    .eq("status", "active")
-    .maybeSingle();
-  if (cart) {
-    await supabase.from("cart_items").delete().eq("cart_id", cart.id);
-  }
+    // Clear the active cart
+    const { data: cart } = await supabase
+      .from("carts")
+      .select("id")
+      .eq("user_id", order.user_id)
+      .eq("status", "active")
+      .maybeSingle();
+    if (cart) {
+      await supabase
+        .from("cart_items")
+        .delete()
+        .eq("cart_id", cart.id);
+    }
 
-  const { data: fullOrder } = await supabase
-    .from("orders")
-    .select("id, amount_cents, phone, city, address, delivery_payment, created_at")
-    .eq("id", order.id)
-    .maybeSingle();
+    // Load enriched order details for email
+    const { data: fullOrder } = await supabase
+      .from("orders")
+      .select("id, amount_cents, phone, city, address, delivery_payment, created_at")
+      .eq("id", order.id)
+      .maybeSingle();
 
-  const { data: orderLines } = await supabase
-    .from("order_items")
-    .select("title, unit_price_cents, quantity, line_total_cents")
-    .eq("order_id", order.id);
+    const { data: orderLines } = await supabase
+      .from("order_items")
+      .select("title, unit_price_cents, quantity, line_total_cents")
+      .eq("order_id", order.id);
 
-  if (shouldProcess) {
     try {
       const customerEmail: string | undefined = evt?.data?.customer?.email ?? undefined;
       const storeTo = process.env.STORE_OWNER_EMAIL!;
       const from = `The Real Gem Shop <${process.env.FROM_EMAIL!}>`;
 
-    const money = (n: number) => `GH₵${(n / 100).toFixed(2)}`;
-    const linesText = (orderLines ?? [])
-      .map((l) => `• ${l.title} × ${l.quantity} — ${money(l.line_total_cents)}`)
-      .join("\n");
-    const linesHtml = (orderLines ?? [])
-      .map(
-        (l) =>
-          `<li>${l.title} × ${l.quantity} — <strong>${money(l.line_total_cents)}</strong></li>`
-      )
-      .join("");
+      const money = (n: number) => `GH₵${(n / 100).toFixed(2)}`;
+      const linesText = (orderLines ?? [])
+        .map((l) => `• ${l.title} × ${l.quantity} — ${money(l.line_total_cents)}`)
+        .join("\n");
+      const linesHtml = (orderLines ?? [])
+        .map(
+          (l) =>
+            `<li>${l.title} × ${l.quantity} — <strong>${money(l.line_total_cents)}</strong></li>`
+        )
+        .join("");
 
-    const total = fullOrder ? money(fullOrder.amount_cents) : "(unknown)";
-    const contactBlock = fullOrder
-      ? `Phone: ${fullOrder.phone ?? "-"}\nCity: ${fullOrder.city ?? "-"}\nAddress: ${fullOrder.address ?? "-"}`
-      : "";
+      const total = fullOrder ? money(fullOrder.amount_cents) : "(unknown)";
+      const contactBlock = fullOrder
+        ? `Phone: ${fullOrder.phone ?? "-"}\nCity: ${fullOrder.city ?? "-"}\nAddress: ${fullOrder.address ?? "-"}`
+        : "";
 
-    const resend = new Resend(process.env.RESEND_API_KEY!);
-    await resend.emails.send({
-      from,
-      to: storeTo,
-      subject: `Paid order ${order.id} — ${total}`,
-      replyTo: customerEmail,
-      text: `A payment was confirmed via Paystack.\n\nOrder ID: ${order.id}\nTotal: ${total}\n\nItems:\n${linesText}\n\nCustomer contact:\n${contactBlock}\n\nDelivery payment: ${fullOrder?.delivery_payment === 'after' ? 'After delivery' : 'Before delivery'}\n\nPlaced at: ${fullOrder?.created_at ?? ""}`,
-      html: `
-        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111">
-          <h2>New paid order</h2>
-          <p><strong>Order ID:</strong> ${order.id}</p>
-          <p><strong>Total:</strong> ${total}</p>
-          <h3 style="margin-top:16px;margin-bottom:8px;">Items</h3>
-          <ul>${linesHtml}</ul>
-          <h3 style="margin-top:16px;margin-bottom:8px;">Customer contact</h3>
-          <p>
-            ${fullOrder?.phone ? `Phone: ${fullOrder.phone}<br/>` : ""}
-            ${fullOrder?.city ? `City: ${fullOrder.city}<br/>` : ""}
-            ${fullOrder?.address ? `Address: ${fullOrder.address}<br/>` : ""}
-            ${customerEmail ? `Email: ${customerEmail}` : ""}
-            ${fullOrder?.delivery_payment ? `Delivery payment: ${fullOrder.delivery_payment === "after" ? "After delivery" : "Before delivery"}<br/>` : ""}
-          </p>
-          <p style="margin-top:16px;color:#666;">Placed at: ${fullOrder?.created_at ?? ""}</p>
-        </div>
-      `,
-    });
+      const resend = new Resend(process.env.RESEND_API_KEY!);
+      await resend.emails.send({
+        from,
+        to: storeTo,
+        subject: `Paid order ${order.id} — ${total}`,
+        replyTo: customerEmail,
+        text: `A payment was confirmed via Paystack.\n\nOrder ID: ${order.id}\nTotal: ${total}\n\nItems:\n${linesText}\n\nCustomer contact:\n${contactBlock}\n\nDelivery payment: ${fullOrder?.delivery_payment === 'after' ? 'After delivery' : 'Before delivery'}\n\nPlaced at: ${fullOrder?.created_at ?? ""}`,
+        html: `
+          <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111">
+            <h2>New paid order</h2>
+            <p><strong>Order ID:</strong> ${order.id}</p>
+            <p><strong>Total:</strong> ${total}</p>
+            <h3 style="margin-top:16px;margin-bottom:8px;">Items</h3>
+            <ul>${linesHtml}</ul>
+            <h3 style="margin-top:16px;margin-bottom:8px;">Customer contact</h3>
+            <p>
+              ${fullOrder?.phone ? `Phone: ${fullOrder.phone}<br/>` : ""}
+              ${fullOrder?.city ? `City: ${fullOrder.city}<br/>` : ""}
+              ${fullOrder?.address ? `Address: ${fullOrder.address}<br/>` : ""}
+              ${customerEmail ? `Email: ${customerEmail}` : ""}
+              ${fullOrder?.delivery_payment ? `Delivery payment: ${fullOrder.delivery_payment === "after" ? "After delivery" : "Before delivery"}<br/>` : ""}
+            </p>
+            <p style="margin-top:16px;color:#666;">Placed at: ${fullOrder?.created_at ?? ""}</p>
+          </div>
+        `,
+      });
     } catch (mailErr) {
       console.warn("[paystack webhook] email notify failed", mailErr);
     }

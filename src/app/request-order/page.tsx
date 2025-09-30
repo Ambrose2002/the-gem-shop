@@ -162,7 +162,10 @@ export default function RequestOrderPage() {
         const body = await res.json().catch(() => null);
         if (!alive) return;
         if (body?.ok && Array.isArray(body.packages)) {
-          setPackages(body.packages);
+          const filtered = body.packages.filter(
+            (pkg: PackageOption) => Number(pkg.stock ?? 0) > 0
+          );
+          setPackages(filtered);
         } else if (body?.error) {
           setPackagesError(body.error);
         } else {

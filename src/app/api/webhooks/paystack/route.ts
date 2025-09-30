@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  const customerName: string | undefined = evt?.data?.metadata?.customerName;
+
   // Verify with Paystack to be absolutely sure
   const verify = await verifyTransaction(orderId);
   const verifiedStatus = verify.json?.data?.status; // 'success' | 'failed' | ...
@@ -133,9 +135,12 @@ export async function POST(req: NextRequest) {
         .join("");
 
       const total = fullOrder ? money(fullOrder.amount_cents) : "(unknown)";
-      const contactBlock = fullOrder
-        ? `Phone: ${fullOrder.phone ?? "-"}\nCity: ${fullOrder.city ?? "-"}\nAddress: ${fullOrder.address ?? "-"}`
-        : "";
+      const contactParts = [] as string[];
+      if (customerName) contactParts.push(`Name: ${customerName}`);
+      if (fullOrder?.phone) contactParts.push(`Phone: ${fullOrder.phone}`);
+      if (fullOrder?.city) contactParts.push(`City: ${fullOrder.city}`);
+      if (fullOrder?.address) contactParts.push(`Address: ${fullOrder.address}`);
+      const contactBlock = contactParts.join("\n");
 
       const resend = new Resend(process.env.RESEND_API_KEY!);
       await resend.emails.send({
@@ -153,6 +158,7 @@ export async function POST(req: NextRequest) {
             <ul>${linesHtml}</ul>
             <h3 style="margin-top:16px;margin-bottom:8px;">Customer contact</h3>
             <p>
+              ${customerName ? `Name: ${customerName}<br/>` : ""}
               ${fullOrder?.phone ? `Phone: ${fullOrder.phone}<br/>` : ""}
               ${fullOrder?.city ? `City: ${fullOrder.city}<br/>` : ""}
               ${fullOrder?.address ? `Address: ${fullOrder.address}<br/>` : ""}

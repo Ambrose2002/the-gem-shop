@@ -42,6 +42,7 @@ export default function RequestOrderPage() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
+    name: "",
     phone: "",
     city: "",
     address: "",
@@ -49,6 +50,7 @@ export default function RequestOrderPage() {
   });
 
   const [touched, setTouched] = useState({
+    name: false,
     phone: false,
     city: false,
     address: false,
@@ -56,6 +58,7 @@ export default function RequestOrderPage() {
   });
 
   const validationErrors = {
+    name: !isNonEmpty(form.name) ? "Name is required" : null,
     phone: !GH_PHONE.test(form.phone.trim())
       ? "Enter a valid Ghana phone (e.g. +233 55 123 4567 or 0551234567)"
       : null,
@@ -67,6 +70,7 @@ export default function RequestOrderPage() {
         : null,
   } as const;
   const isValid =
+    !validationErrors.name &&
     !validationErrors.phone &&
     !validationErrors.city &&
     !validationErrors.address &&
@@ -278,7 +282,13 @@ export default function RequestOrderPage() {
     e.preventDefault();
     setErr(null);
     setSaving(true);
-    setTouched({ phone: true, city: true, address: true, deliveryPay: true });
+    setTouched({
+      name: true,
+      phone: true,
+      city: true,
+      address: true,
+      deliveryPay: true,
+    });
 
     if (!isValid) {
       setSaving(false);
@@ -307,6 +317,7 @@ export default function RequestOrderPage() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: form.name,
           phone: form.phone,
           city: form.city,
           address: form.address,
@@ -337,6 +348,25 @@ export default function RequestOrderPage() {
         </p>
 
         <div className="mt-6 grid gap-2">
+          <label className="text-sm text-gray-700">Name</label>
+          <input
+            required
+            className={`rounded-lg border px-3 py-2 text-gray-700 ${
+              validationErrors.name && touched.name
+                ? "border-red-500"
+                : "border-gray-300"
+            }`}
+            value={form.name}
+            onBlur={() => setTouched((v) => ({ ...v, name: true }))}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder=""
+          />
+          {validationErrors.name && touched.name && (
+            <p className="mt-1 text-xs text-red-600">{validationErrors.name}</p>
+          )}
+        </div>
+
+        <div className="grid gap-2">
           <label className="text-sm text-gray-700">Phone</label>
           <input
             required

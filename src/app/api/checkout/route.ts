@@ -15,6 +15,7 @@ type PackageLineInput = {
 };
 
 type CheckoutBody = {
+  name?: string;
   phone?: string;
   city?: string;
   address?: string;
@@ -42,7 +43,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Parse request body for phone + city + address + deliveryPayment
-  const body: CheckoutBody = await req.json().catch(() => ({} as CheckoutBody));
+  const body: CheckoutBody = await req
+    .json()
+    .catch(() => ({} as CheckoutBody));
+  const customerName = (body.name ?? "").trim();
   const phone = (body.phone ?? "").trim();
   const city = (body.city ?? "").trim();
   const address = (body.address ?? "").trim();
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
   });
 
   const GH_PHONE = /^(\+233\d{9}|0\d{9})$/;
-  if (!GH_PHONE.test(phone) || city.length < 2 || address.length < 3) {
+  if (!customerName || !GH_PHONE.test(phone) || city.length < 2 || address.length < 3) {
     return NextResponse.json({ error: "Invalid contact details" }, { status: 400 });
   }
 
@@ -311,6 +315,7 @@ export async function POST(req: NextRequest) {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
   const paystackMetadata: Record<string, unknown> = {
     order_id: order.id,
+    customerName,
     phone,
     city,
     address,

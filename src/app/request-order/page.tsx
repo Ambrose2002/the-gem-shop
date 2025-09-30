@@ -81,6 +81,9 @@ export default function RequestOrderPage() {
   const [selectedPackages, setSelectedPackages] = useState<SelectedPackagesState>({});
   const [modalPackage, setModalPackage] = useState<PackageOption | null>(null);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [pickerLine, setPickerLine] = useState<
+    { productId: string; title: string; quantity: number } | null
+  >(null);
 
   const packagesMap = useMemo(() => {
     const map: Record<string, PackageOption> = {};
@@ -485,93 +488,48 @@ export default function RequestOrderPage() {
                         </span>
                       </div>
 
-                      {loadingPackages ? (
-                        <p className="mt-3 text-xs text-gray-500">
-                          Loading packages…
-                        </p>
-                      ) : packages.length === 0 ? (
-                        <p className="mt-3 text-xs text-gray-500">
-                          No packages available yet.
-                        </p>
-                      ) : (
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          {packages.map((pkg) => {
-                            const qtySelected = selections[pkg.id] ?? 0;
-                            const canIncrement =
-                              totalSelected < it.quantity &&
-                              qtySelected < Math.max(0, pkg.stock);
-                            const isOutOfStock = pkg.stock <= 0;
-
+                      {Object.keys(selections).length ? (
+                        <ul className="mt-3 space-y-1 text-xs text-gray-600">
+                          {Object.entries(selections).map(([packageId, quantity]) => {
+                            const pkg = packagesMap[packageId];
+                            const title = pkg?.title ?? "Package";
+                            const total = pkg
+                              ? formatMoney(pkg.price_cents * quantity)
+                              : formatMoney(0);
                             return (
-                              <div
-                                key={`${it.productId}-${pkg.id}`}
-                                className={`rounded-2xl border p-3 transition ${
-                                  qtySelected > 0
-                                    ? "border-black ring-1 ring-black"
-                                    : "border-gray-200 hover:border-gray-300"
-                                }`}
+                              <li
+                                key={`${it.productId}-${packageId}`}
+                                className="flex items-center justify-between gap-3"
                               >
-                                <div className="h-24 w-full overflow-hidden rounded-lg bg-gray-100">
-                                  {pkg.images[0] ? (
-                                    <img
-                                      src={pkg.images[0]}
-                                      alt={pkg.title}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">
-                                      No image
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="mt-3 flex items-start justify-between gap-2">
-                                  <div>
-                                    <div className="text-sm font-semibold text-gray-900">
-                                      {pkg.title}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {formatMoney(pkg.price_cents)}
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="text-xs text-gray-600 underline"
-                                    onClick={() => openPackageModal(pkg)}
-                                  >
-                                    View
-                                  </button>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  {isOutOfStock
-                                    ? "Out of stock"
-                                    : `${pkg.stock} in stock`}
-                                </div>
-                                <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-200 px-2 py-1 text-sm">
-                                  <button
-                                    type="button"
-                                    onClick={() => decrementPackage(it.productId, pkg.id)}
-                                    disabled={qtySelected === 0}
-                                    className="h-7 w-7 rounded-md border border-gray-300 text-center text-base leading-6 disabled:opacity-40"
-                                  >
-                                    −
-                                  </button>
-                                  <span className="text-xs font-medium text-gray-700">
-                                    {qtySelected}/{it.quantity}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => incrementPackage(it.productId, pkg.id)}
-                                    disabled={!canIncrement || isOutOfStock}
-                                    className="h-7 w-7 rounded-md border border-gray-300 text-center text-base leading-6 disabled:opacity-40"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
+                                <span>
+                                  {title} — {quantity}
+                                </span>
+                                <span className="font-medium text-gray-700">
+                                  {total}
+                                </span>
+                              </li>
                             );
                           })}
-                        </div>
+                        </ul>
+                      ) : (
+                        <p className="mt-3 text-xs text-gray-500">
+                          No packaging selected.
+                        </p>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPickerLine({
+                            productId: it.productId,
+                            title: it.title,
+                            quantity: it.quantity,
+                          })
+                        }
+                        className="mt-3 w-full rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        Choose packaging
+                      </button>
 
                       {packagesError && idx === 0 && (
                         <p className="mt-3 text-xs text-red-600">{packagesError}</p>
@@ -619,6 +577,143 @@ export default function RequestOrderPage() {
           </button>
         </form>
       </main>
+
+      {pickerLine && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Select packaging
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {pickerLine.title} · {totalSelectedForLine(pickerLine.productId)}
+                  /{pickerLine.quantity} selected
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickerLine(null)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {loadingPackages ? (
+                <p className="text-sm text-gray-500">Loading packages…</p>
+              ) : packages.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No packages available right now.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {packages.map((pkg) => {
+                    const lineSelections = selectedPackages[pickerLine.productId] ?? {};
+                    const qtySelected = lineSelections[pkg.id] ?? 0;
+                    const totalSelected = totalSelectedForLine(pickerLine.productId);
+                    const canIncrement =
+                      totalSelected < pickerLine.quantity &&
+                      qtySelected < Math.max(0, pkg.stock);
+
+                    return (
+                      <div
+                        key={`${pickerLine.productId}-${pkg.id}`}
+                        className={`flex gap-3 rounded-2xl border p-3 transition ${
+                          qtySelected > 0
+                            ? "border-black ring-1 ring-black"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100"
+                          onClick={() => openPackageModal(pkg)}
+                        >
+                          {pkg.images[0] ? (
+                            <img
+                              src={pkg.images[0]}
+                              alt={pkg.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-500">
+                              View
+                            </div>
+                          )}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {pkg.title}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {formatMoney(pkg.price_cents)}
+                              </div>
+                            </div>
+                            <span className="text-[11px] text-gray-500">
+                              {Math.max(0, pkg.stock)} in stock
+                            </span>
+                          </div>
+
+                          <p className="mt-2 line-clamp-2 text-xs text-gray-500">
+                            {pkg.description || "No description provided."}
+                          </p>
+
+                          <div className="mt-3 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                decrementPackage(pickerLine.productId, pkg.id)
+                              }
+                              disabled={qtySelected === 0}
+                              className="h-8 w-8 rounded-md border border-gray-300 text-center text-base leading-7 disabled:opacity-40"
+                            >
+                              −
+                            </button>
+                            <span className="w-12 text-center text-sm font-medium text-gray-800">
+                              {qtySelected}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                incrementPackage(pickerLine.productId, pkg.id)
+                              }
+                              disabled={!canIncrement}
+                              className="h-8 w-8 rounded-md border border-gray-300 text-center text-base leading-7 disabled:opacity-40"
+                            >
+                              +
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openPackageModal(pkg)}
+                              className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                            >
+                              View images
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="border-t px-6 py-3">
+              <button
+                type="button"
+                onClick={() => setPickerLine(null)}
+                className="w-full rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalPackage && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
